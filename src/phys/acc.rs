@@ -1,4 +1,4 @@
-use std::{time::Duration, ops::{Add, AddAssign, Mul, Div}};
+use std::{time::Duration, ops::{Add, AddAssign, Mul, Div, Neg}};
 
 use super::{Velocity, Vec2};
 
@@ -140,5 +140,21 @@ impl Div<&f32> for &Acceleration {
 
     fn div(self, rhs: &f32) -> Self::Output {
         Acceleration::from(self.0 / rhs)
+    }
+}
+
+impl Neg for Acceleration {
+    type Output = Acceleration;
+
+    fn neg(self) -> Self::Output {
+        Acceleration(-self.0)
+    }
+}
+
+impl Neg for &Acceleration {
+    type Output = Acceleration;
+
+    fn neg(self) -> Self::Output {
+        Acceleration(-self.0)
     }
 }

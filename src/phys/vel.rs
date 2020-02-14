@@ -1,6 +1,6 @@
-use std::{time::Duration, ops::{Add, AddAssign, Mul}};
+use std::{time::Duration, ops::{Add, AddAssign, Mul, MulAssign}};
 
-use super::{Position, Vec2};
+use super::{Distance, Vec2};
 
 #[derive(Debug, Copy, Clone, Default)]
 pub struct Velocity(pub Vec2);
@@ -80,33 +80,45 @@ impl AddAssign<&Velocity> for &mut Velocity {
 }
 
 impl Mul<Duration> for Velocity {
-    type Output = Position;
+    type Output = Distance;
 
     fn mul(self, rhs: Duration) -> Self::Output {
-        Position::from(self.0 * rhs.as_secs_f32())
+        Distance::from(self.0 * rhs.as_secs_f32())
     }
 }
 
 impl Mul<&Duration> for Velocity {
-    type Output = Position;
+    type Output = Distance;
 
     fn mul(self, rhs: &Duration) -> Self::Output {
-        Position::from(self.0 * rhs.as_secs_f32())
+        Distance::from(self.0 * rhs.as_secs_f32())
     }
 }
 
 impl Mul<Duration> for &Velocity {
-    type Output = Position;
+    type Output = Distance;
 
     fn mul(self, rhs: Duration) -> Self::Output {
-        Position::from(self.0 * rhs.as_secs_f32())
+        Distance::from(self.0 * rhs.as_secs_f32())
     }
 }
 
 impl Mul<&Duration> for &Velocity {
-    type Output = Position;
+    type Output = Distance;
 
     fn mul(self, rhs: &Duration) -> Self::Output {
-        Position::from(self.0 * rhs.as_secs_f32())
+        Distance::from(self.0 * rhs.as_secs_f32())
+    }
+}
+
+impl MulAssign<f32> for Velocity {
+    fn mul_assign(&mut self, rhs: f32) {
+        self.0 *= rhs;
+    }
+}
+
+impl MulAssign<f32> for &mut Velocity {
+    fn mul_assign(&mut self, rhs: f32) {
+        self.0 *= rhs;
     }
 }
