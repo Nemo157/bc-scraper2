@@ -9,3 +9,4 @@ edition = "2018"
 [dependencies]
 hecs = "0.2.7"
 ggez = "0.5.1"
+rand = "0.7.3"
