@@ -4,20 +4,31 @@ use ggez::{Context, input::mouse::MouseButton, graphics::{Rect, Mesh, DrawMode, 
 
 use crate::{
     phys::{Position, Velocity},
-    data::{Relationship, UnderMouse},
+    data::{Relationship, UnderMouse, User, Album},
 };
 
 const LIGHT_RED: Color = Color::new(1.0, 0.0, 0.0, 0.2);
 
 fn ensure_meshes(world: &mut World, ctx: &mut Context) {
-    let to_add = world.query::<hecs::Without<Mesh, &Position>>().iter()
+    let to_add_users = world.query::<hecs::Without<Mesh, &User>>().iter()
         .map(|(entity, _)| entity)
         .collect::<Vec<_>>();
 
-    for entity in to_add {
+    let to_add_albums = world.query::<hecs::Without<Mesh, &Album>>().iter()
+        .map(|(entity, _)| entity)
+        .collect::<Vec<_>>();
+
+    for entity in to_add_users {
         world.insert_one(
             entity,
             Mesh::new_rectangle(ctx, DrawMode::fill(), Rect::new(-5.0, -5.0, 10.0, 10.0), BLACK).unwrap(),
+        ).unwrap();
+    }
+
+    for entity in to_add_albums {
+        world.insert_one(
+            entity,
+            Mesh::new_circle(ctx, DrawMode::fill(), [0.0, 0.0], 5.0, 0.1, BLACK).unwrap(),
         ).unwrap();
     }
 }
