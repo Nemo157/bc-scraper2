@@ -23,6 +23,12 @@ impl From<(f32, f32)> for Distance {
     }
 }
 
+impl From<[f32; 2]> for Distance {
+    fn from([x, y]: [f32; 2]) -> Self {
+        Self::from(Vec2::from((x, y)))
+    }
+}
+
 impl Add<Distance> for Distance {
     type Output = Distance;
 

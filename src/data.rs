@@ -19,6 +19,9 @@ pub struct Album;
 #[derive(Debug)]
 pub struct User;
 
+#[derive(Debug)]
+pub struct Camera;
+
 pub fn spawn_random(world: &mut World) {
     let mut rng = rand::thread_rng();
     let positions = Uniform::new(Position::new(200.0, 200.0), Position::new(400.0, 400.0));

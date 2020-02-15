@@ -1,4 +1,4 @@
-use std::ops::{Add, AddAssign, Mul, Div, Sub, Neg, MulAssign};
+use std::ops::{Add, AddAssign, Mul, Div, Sub, Neg, MulAssign, SubAssign};
 
 #[derive(Debug, Copy, Clone, Default)]
 pub struct Vec2 {
@@ -125,6 +125,34 @@ impl Sub<&Vec2> for &Vec2 {
             x: self.x - rhs.x,
             y: self.y - rhs.y,
         }
+    }
+}
+
+impl SubAssign<Vec2> for Vec2 {
+    fn sub_assign(&mut self, rhs: Vec2) {
+        self.x -= rhs.x;
+        self.y -= rhs.y;
+    }
+}
+
+impl SubAssign<&Vec2> for Vec2 {
+    fn sub_assign(&mut self, rhs: &Vec2) {
+        self.x -= rhs.x;
+        self.y -= rhs.y;
+    }
+}
+
+impl SubAssign<Vec2> for &mut Vec2 {
+    fn sub_assign(&mut self, rhs: Vec2) {
+        self.x -= rhs.x;
+        self.y -= rhs.y;
+    }
+}
+
+impl SubAssign<&Vec2> for &mut Vec2 {
+    fn sub_assign(&mut self, rhs: &Vec2) {
+        self.x -= rhs.x;
+        self.y -= rhs.y;
     }
 }
 
