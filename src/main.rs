@@ -13,8 +13,8 @@ const SIM_TIME: Duration = Duration::from_millis(1000 / SIM_FREQ);
 const LIGHT_RED: Color = Color::new(1.0, 0.0, 0.0, 0.2);
 
 fn draw(world: &mut World, ctx: &mut Context, delta: Duration) {
-    for (_, (square, pos, vel_acc)) in &mut world.query::<(&Mesh, &Position, Option<hecs::Without<UnderMouse, (&Velocity, Option<&Acceleration>)>>)>() {
-        let pos = vel_acc.map(|(vel, acc)| pos + acc.map(|acc| vel + (acc / 2.0) * delta).unwrap_or(*vel) * delta).unwrap_or(*pos);
+    for (_, (square, pos, vel)) in &mut world.query::<(&Mesh, &Position, Option<hecs::Without<UnderMouse, &Velocity>>)>() {
+        let pos = vel.map(|vel| pos + *vel * delta).unwrap_or(*pos);
         ggez::graphics::draw(ctx, square, DrawParam::from(([pos.0.x, pos.0.y],))).unwrap();
     }
 
@@ -190,9 +190,9 @@ impl EventHandler for Ui {
         while ggez::timer::check_update_time(ctx, SIM_FREQ as u32) {
             let mouse_pos = ggez::input::mouse::position(ctx);
             update_under_mouse(&mut self.world, mouse_pos.into());
+            update_pos(&mut self.world, SIM_TIME);
             update_acc(&mut self.world);
             update_vel(&mut self.world, SIM_TIME);
-            update_pos(&mut self.world, SIM_TIME);
             self.last_update = Instant::now();
         }
 
