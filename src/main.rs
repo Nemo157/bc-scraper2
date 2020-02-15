@@ -20,11 +20,15 @@ fn draw(world: &mut World, ctx: &mut Context, delta: Duration) {
 
     let mut mesh = MeshBuilder::new();
     for (_, rel) in &mut world.query::<&Relationship>() {
-        let (pos1, pos2) = (
+        let (pos1, vel1, pos2, vel2) = (
             world.get::<Position>(rel.from).unwrap(),
+            world.get::<Velocity>(rel.from),
             world.get::<Position>(rel.to).unwrap(),
+            world.get::<Velocity>(rel.to),
         );
-        let dist = *pos1 - *pos2;
+        let pos1 = vel1.map(|vel1| *pos1 + *vel1 * delta).unwrap_or(*pos1);
+        let pos2 = vel2.map(|vel2| *pos2 + *vel2 * delta).unwrap_or(*pos2);
+        let dist = pos1 - pos2;
         if dist.0.x.abs() > 1.0 && dist.0.y.abs() > 1.0 {
             mesh.line(&[[pos1.0.x, pos1.0.y], [pos2.0.x, pos2.0.y]], 0.5, LIGHT_RED).unwrap();
         }
