@@ -1,6 +1,6 @@
 use hecs::World;
 use std::time::{Instant, Duration};
-use ggez::{Context, ContextBuilder, GameResult, event::EventHandler, input::mouse::MouseButton, graphics::{Rect, Mesh, DrawMode, DrawParam, WHITE, BLACK, Color}};
+use ggez::{Context, ContextBuilder, GameResult, event::EventHandler, input::mouse::MouseButton, graphics::{Rect, Mesh, DrawMode, DrawParam, WHITE, BLACK, Color, MeshBuilder}};
 use rand::{seq::SliceRandom, distributions::{Distribution, Uniform}};
 use rand_distr::Poisson;
 
@@ -18,14 +18,19 @@ fn draw(world: &mut World, ctx: &mut Context, delta: Duration) {
         ggez::graphics::draw(ctx, square, DrawParam::from(([pos.0.x, pos.0.y],))).unwrap();
     }
 
-    // for (_, rel) in &mut world.query::<&Relationship>() {
-    //     let (pos1, pos2) = (
-    //         world.get::<Position>(rel.from).unwrap(),
-    //         world.get::<Position>(rel.to).unwrap(),
-    //     );
-    //     let line = Mesh::new_line(ctx, &[[pos1.0.x, pos1.0.y], [pos2.0.x, pos2.0.y]], 0.5, LIGHT_RED).unwrap();
-    //     ggez::graphics::draw(ctx, &line, DrawParam::default()).unwrap();
-    // }
+    let mut mesh = MeshBuilder::new();
+    for (_, rel) in &mut world.query::<&Relationship>() {
+        let (pos1, pos2) = (
+            world.get::<Position>(rel.from).unwrap(),
+            world.get::<Position>(rel.to).unwrap(),
+        );
+        let dist = *pos1 - *pos2;
+        if dist.0.x.abs() > 1.0 && dist.0.y.abs() > 1.0 {
+            mesh.line(&[[pos1.0.x, pos1.0.y], [pos2.0.x, pos2.0.y]], 0.5, LIGHT_RED).unwrap();
+        }
+    }
+    let mesh = mesh.build(ctx).unwrap();
+    ggez::graphics::draw(ctx, &mesh, DrawParam::default()).unwrap();
 }
 
 fn update_pos(world: &mut World, delta: Duration) {
