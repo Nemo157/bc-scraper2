@@ -1,14 +1,16 @@
 use hecs::World;
+use rayon::iter::{IntoParallelIterator, ParallelIterator};
 use std::time::Duration;
 
 use crate::{
-    phys::{Position, Velocity, Acceleration},
     data::{Relationship, UnderMouse},
+    phys::{Acceleration, Position, Velocity},
 };
 
-
 fn update_pos(world: &mut World, delta: Duration) {
-    for (_, (mut pos, vel)) in &mut world.query::<hecs::Without<UnderMouse, (&mut Position, &Velocity)>>() {
+    for (_, (mut pos, vel)) in
+        &mut world.query::<hecs::Without<UnderMouse, (&mut Position, &Velocity)>>()
+    {
         pos += vel * delta;
     }
 }
@@ -18,10 +20,17 @@ fn update_vel(world: &mut World, delta: Duration) {
         *vel = Velocity::default();
     }
 
-    for (_, (mut vel, acc)) in &mut world.query::<hecs::Without<UnderMouse, (&mut Velocity, &Acceleration)>>() {
-        vel *= 0.7;
-        vel += acc * delta;
-    }
+    world
+        .query::<hecs::Without<UnderMouse, (&mut Velocity, &Acceleration)>>()
+        .iter_batched(1024)
+        .collect::<Vec<_>>()
+        .into_par_iter()
+        .for_each(|batch| {
+            batch.for_each(|(_, (mut vel, acc))| {
+                vel *= 0.7;
+                vel += acc * delta;
+            })
+        });
 }
 
 fn repel(world: &mut World) {
