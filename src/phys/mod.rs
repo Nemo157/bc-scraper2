@@ -1,9 +1,9 @@
+mod acc;
+mod dist;
 mod pos;
+mod rand;
 mod vec;
 mod vel;
-mod acc;
-mod rand;
-mod dist;
 
+pub use self::{acc::Acceleration, dist::Distance, pos::Position, vel::Velocity};
 use vec::Vec2;
-pub use self::{pos::Position, vel::Velocity, acc::Acceleration, dist::Distance};

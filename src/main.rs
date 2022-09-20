@@ -1,23 +1,22 @@
+use ggez::{event::EventHandler, input::mouse::MouseButton, Context, ContextBuilder, GameResult};
 use hecs::World;
-use std::time::{Instant, Duration};
-use ggez::{Context, ContextBuilder, GameResult, event::EventHandler, input::mouse::MouseButton};
+use std::time::{Duration, Instant};
 
+mod data;
 mod phys;
 mod sim;
-mod data;
 mod ui;
 
-use crate::phys::{Position, Distance};
+use crate::phys::{Distance, Position};
 
 const SIM_FREQ: u64 = 20;
 const SIM_TIME: Duration = Duration::from_millis(1000 / SIM_FREQ);
 
 fn main() {
     // Make a Context and an EventLoop.
-    let (mut ctx, mut event_loop) =
-       ContextBuilder::new("game_name", "author_name")
-           .build()
-           .unwrap();
+    let (mut ctx, mut event_loop) = ContextBuilder::new("game_name", "author_name")
+        .build()
+        .unwrap();
 
     // Create an instance of your event handler.
     // Usually, you should provide it with the Context object
@@ -27,7 +26,7 @@ fn main() {
     // Run!
     match ggez::event::run(&mut ctx, &mut event_loop, &mut ui) {
         Ok(_) => println!("Exited cleanly."),
-        Err(e) => println!("Error occured: {}", e)
+        Err(e) => println!("Error occured: {}", e),
     }
 }
 
@@ -44,7 +43,10 @@ impl Ui {
         ui::init(&mut world, ctx);
 
         // Load/create resources here: images, fonts, sounds, etc.
-        Ui { world, last_update: Instant::now() }
+        Ui {
+            world,
+            last_update: Instant::now(),
+        }
     }
 }
 
@@ -58,7 +60,12 @@ impl EventHandler for Ui {
     }
 
     fn mouse_motion_event(&mut self, ctx: &mut Context, x: f32, y: f32, dx: f32, dy: f32) {
-        ui::mouse_motion(&mut self.world, ctx, Position::new(x, y), Distance::new(dx, dy));
+        ui::mouse_motion(
+            &mut self.world,
+            ctx,
+            Position::new(x, y),
+            Distance::new(dx, dy),
+        );
     }
 
     fn update(&mut self, ctx: &mut Context) -> GameResult<()> {

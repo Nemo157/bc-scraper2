@@ -1,4 +1,7 @@
-use std::{time::Duration, ops::{Add, AddAssign, Mul, MulAssign}};
+use std::{
+    ops::{Add, AddAssign, Mul, MulAssign},
+    time::Duration,
+};
 
 use super::{Distance, Vec2};
 

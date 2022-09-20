@@ -1,4 +1,4 @@
-use std::ops::{Add, AddAssign, Mul, Div, Sub, Neg, MulAssign, SubAssign};
+use std::ops::{Add, AddAssign, Div, Mul, MulAssign, Neg, Sub, SubAssign};
 
 #[derive(Debug, Copy, Clone, Default)]
 pub struct Vec2 {
@@ -262,7 +262,10 @@ impl Neg for Vec2 {
     type Output = Vec2;
 
     fn neg(self) -> Self::Output {
-        Vec2 { x: -self.x, y: -self.y }
+        Vec2 {
+            x: -self.x,
+            y: -self.y,
+        }
     }
 }
 
@@ -270,6 +273,9 @@ impl Neg for &Vec2 {
     type Output = Vec2;
 
     fn neg(self) -> Self::Output {
-        Vec2 { x: -self.x, y: -self.y }
+        Vec2 {
+            x: -self.x,
+            y: -self.y,
+        }
     }
 }

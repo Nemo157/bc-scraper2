@@ -1,8 +1,11 @@
 use hecs::{Entity, World};
-use rand::{seq::SliceRandom, distributions::{Distribution, Uniform}};
+use rand::{
+    distributions::{Distribution, Uniform},
+    seq::SliceRandom,
+};
 use rand_distr::Poisson;
 
-use crate::phys::{Position, Velocity, Acceleration};
+use crate::phys::{Acceleration, Position, Velocity};
 
 #[derive(Debug)]
 pub struct Relationship {
@@ -63,12 +66,18 @@ pub fn spawn_random(world: &mut World) {
     for from in &users {
         let count: u64 = Poisson::new(3.0).unwrap().sample(&mut rng);
         for to in linked_albums.choose_multiple(&mut rng, count as usize) {
-            world.spawn((Relationship { from: *from, to: *to },));
+            world.spawn((Relationship {
+                from: *from,
+                to: *to,
+            },));
         }
     }
 
     for from in &albums {
         let to = users.choose(&mut rng).unwrap();
-        world.spawn((Relationship { from: *from, to: *to },));
+        world.spawn((Relationship {
+            from: *from,
+            to: *to,
+        },));
     }
 }

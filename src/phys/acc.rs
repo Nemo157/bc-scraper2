@@ -1,6 +1,9 @@
-use std::{time::Duration, ops::{Add, AddAssign, Mul, Div, Neg}};
+use std::{
+    ops::{Add, AddAssign, Div, Mul, Neg},
+    time::Duration,
+};
 
-use super::{Velocity, Vec2};
+use super::{Vec2, Velocity};
 
 #[derive(Debug, Copy, Clone, Default)]
 pub struct Acceleration(pub Vec2);

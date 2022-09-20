@@ -1,6 +1,6 @@
 use std::ops::{Add, AddAssign, Sub};
 
-use super::{Vec2, Distance};
+use super::{Distance, Vec2};
 
 #[derive(Debug, Copy, Clone, Default)]
 pub struct Position(pub Vec2);

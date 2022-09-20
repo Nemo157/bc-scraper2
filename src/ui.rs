@@ -1,35 +1,53 @@
+use ggez::{
+    graphics::{Color, DrawMode, DrawParam, Mesh, MeshBuilder, Rect, BLACK, WHITE},
+    input::mouse::MouseButton,
+    Context,
+};
 use hecs::World;
 use std::time::Duration;
-use ggez::{Context, input::mouse::MouseButton, graphics::{Rect, Mesh, DrawMode, DrawParam, WHITE, BLACK, Color, MeshBuilder}};
 
 use crate::{
-    phys::{Position, Velocity, Distance},
-    data::{Relationship, UnderMouse, User, Album, Camera, Dragged},
+    data::{Album, Camera, Dragged, Relationship, UnderMouse, User},
+    phys::{Distance, Position, Velocity},
 };
 
 const LIGHT_RED: Color = Color::new(1.0, 0.0, 0.0, 0.2);
 
 fn ensure_meshes(world: &mut World, ctx: &mut Context) {
-    let to_add_users = world.query_mut::<hecs::Without<Mesh, &User>>().into_iter()
+    let to_add_users = world
+        .query_mut::<hecs::Without<Mesh, &User>>()
+        .into_iter()
         .map(|(entity, _)| entity)
         .collect::<Vec<_>>();
 
-    let to_add_albums = world.query_mut::<hecs::Without<Mesh, &Album>>().into_iter()
+    let to_add_albums = world
+        .query_mut::<hecs::Without<Mesh, &Album>>()
+        .into_iter()
         .map(|(entity, _)| entity)
         .collect::<Vec<_>>();
 
     for entity in to_add_users {
-        world.insert_one(
-            entity,
-            Mesh::new_rectangle(ctx, DrawMode::fill(), Rect::new(-5.0, -5.0, 10.0, 10.0), BLACK).unwrap(),
-        ).unwrap();
+        world
+            .insert_one(
+                entity,
+                Mesh::new_rectangle(
+                    ctx,
+                    DrawMode::fill(),
+                    Rect::new(-5.0, -5.0, 10.0, 10.0),
+                    BLACK,
+                )
+                .unwrap(),
+            )
+            .unwrap();
     }
 
     for entity in to_add_albums {
-        world.insert_one(
-            entity,
-            Mesh::new_circle(ctx, DrawMode::fill(), [0.0, 0.0], 5.0, 0.1, BLACK).unwrap(),
-        ).unwrap();
+        world
+            .insert_one(
+                entity,
+                Mesh::new_circle(ctx, DrawMode::fill(), [0.0, 0.0], 5.0, 0.1, BLACK).unwrap(),
+            )
+            .unwrap();
     }
 }
 
@@ -41,7 +59,11 @@ fn transform(world: &mut World, ctx: &mut Context) {
 }
 
 fn draw_entities(world: &mut World, ctx: &mut Context, delta: Duration) {
-    for (_, (mesh, pos, vel)) in world.query_mut::<(&Mesh, &Position, Option<hecs::Without<UnderMouse, &Velocity>>)>() {
+    for (_, (mesh, pos, vel)) in world.query_mut::<(
+        &Mesh,
+        &Position,
+        Option<hecs::Without<UnderMouse, &Velocity>>,
+    )>() {
         let pos = vel.map(|vel| pos + *vel * delta).unwrap_or(*pos);
         ggez::graphics::draw(ctx, mesh, DrawParam::from(([pos.0.x, pos.0.y],))).unwrap();
     }
@@ -60,7 +82,12 @@ fn draw_relationships(world: &mut World, ctx: &mut Context, delta: Duration) {
         let pos2 = vel2.map(|vel2| *pos2 + *vel2 * delta).unwrap_or(*pos2);
         let dist = pos1 - pos2;
         if dist.0.x.abs() > 1.0 && dist.0.y.abs() > 1.0 {
-            mesh.line(&[[pos1.0.x, pos1.0.y], [pos2.0.x, pos2.0.y]], 0.5, LIGHT_RED).unwrap();
+            mesh.line(
+                &[[pos1.0.x, pos1.0.y], [pos2.0.x, pos2.0.y]],
+                0.5,
+                LIGHT_RED,
+            )
+            .unwrap();
         }
     }
     let mesh = mesh.build(ctx).unwrap();
@@ -91,14 +118,22 @@ fn update_drag(world: &mut World, mouse_pos: Position, delta: Distance) {
 }
 
 fn start_drag(world: &mut World) {
-    let to_add = world.query_mut::<hecs::With<UnderMouse, ()>>().into_iter().map(|(entity, ())| entity).collect::<Vec<_>>();
+    let to_add = world
+        .query_mut::<hecs::With<UnderMouse, ()>>()
+        .into_iter()
+        .map(|(entity, ())| entity)
+        .collect::<Vec<_>>();
     for entity in to_add {
         world.insert_one(entity, Dragged).unwrap();
     }
 }
 
 fn stop_drag(world: &mut World) {
-    let to_remove = world.query_mut::<hecs::With<Dragged, ()>>().into_iter().map(|(entity, ())| entity).collect::<Vec<_>>();
+    let to_remove = world
+        .query_mut::<hecs::With<Dragged, ()>>()
+        .into_iter()
+        .map(|(entity, ())| entity)
+        .collect::<Vec<_>>();
     for entity in to_remove {
         world.remove_one::<Dragged>(entity).unwrap();
     }
@@ -112,7 +147,9 @@ fn offset_to_camera(world: &mut World, mut mouse_pos: Position) -> Position {
 }
 
 fn update_under_mouse(world: &mut World, mouse_pos: Position) {
-    let to_remove = world.query_mut::<hecs::With<UnderMouse, &Position>>().into_iter()
+    let to_remove = world
+        .query_mut::<hecs::With<UnderMouse, &Position>>()
+        .into_iter()
         .filter(|(_, pos)| {
             let dist = *pos - mouse_pos;
             dist.0.x.abs() > 5.0 || dist.0.y.abs() > 5.0
@@ -120,7 +157,9 @@ fn update_under_mouse(world: &mut World, mouse_pos: Position) {
         .map(|(entity, _)| entity)
         .collect::<Vec<_>>();
 
-    let to_add = world.query_mut::<hecs::Without<UnderMouse, &Position>>().into_iter()
+    let to_add = world
+        .query_mut::<hecs::Without<UnderMouse, &Position>>()
+        .into_iter()
         .filter(|(_, pos)| {
             let dist = *pos - mouse_pos;
             dist.0.x.abs() < 5.0 && dist.0.y.abs() < 5.0

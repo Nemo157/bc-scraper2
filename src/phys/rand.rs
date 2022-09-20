@@ -1,6 +1,9 @@
-use rand::{Rng, distributions::uniform::{SampleUniform, UniformSampler, UniformFloat, SampleBorrow}};
+use rand::{
+    distributions::uniform::{SampleBorrow, SampleUniform, UniformFloat, UniformSampler},
+    Rng,
+};
 
-use super::{Vec2, Position, Velocity, Acceleration};
+use super::{Acceleration, Position, Vec2, Velocity};
 
 #[derive(Clone, Copy, Debug)]
 pub struct UniformVec2(UniformFloat<f32>, UniformFloat<f32>);
@@ -18,8 +21,9 @@ impl UniformSampler for UniformVec2 {
     type X = Vec2;
 
     fn new<B1, B2>(low: B1, high: B2) -> Self
-        where B1: SampleBorrow<Self::X> + Sized,
-              B2: SampleBorrow<Self::X> + Sized
+    where
+        B1: SampleBorrow<Self::X> + Sized,
+        B2: SampleBorrow<Self::X> + Sized,
     {
         UniformVec2(
             UniformFloat::<f32>::new(low.borrow().x, high.borrow().x),
@@ -28,8 +32,9 @@ impl UniformSampler for UniformVec2 {
     }
 
     fn new_inclusive<B1, B2>(low: B1, high: B2) -> Self
-        where B1: SampleBorrow<Self::X> + Sized,
-              B2: SampleBorrow<Self::X> + Sized
+    where
+        B1: SampleBorrow<Self::X> + Sized,
+        B2: SampleBorrow<Self::X> + Sized,
     {
         UniformSampler::new(low, high)
     }
@@ -43,15 +48,17 @@ impl UniformSampler for UniformPosition {
     type X = Position;
 
     fn new<B1, B2>(low: B1, high: B2) -> Self
-        where B1: SampleBorrow<Self::X> + Sized,
-              B2: SampleBorrow<Self::X> + Sized
+    where
+        B1: SampleBorrow<Self::X> + Sized,
+        B2: SampleBorrow<Self::X> + Sized,
     {
         UniformPosition(UniformVec2::new(low.borrow().0, high.borrow().0))
     }
 
     fn new_inclusive<B1, B2>(low: B1, high: B2) -> Self
-        where B1: SampleBorrow<Self::X> + Sized,
-              B2: SampleBorrow<Self::X> + Sized
+    where
+        B1: SampleBorrow<Self::X> + Sized,
+        B2: SampleBorrow<Self::X> + Sized,
     {
         UniformSampler::new(low, high)
     }
@@ -65,15 +72,17 @@ impl UniformSampler for UniformVelocity {
     type X = Velocity;
 
     fn new<B1, B2>(low: B1, high: B2) -> Self
-        where B1: SampleBorrow<Self::X> + Sized,
-              B2: SampleBorrow<Self::X> + Sized
+    where
+        B1: SampleBorrow<Self::X> + Sized,
+        B2: SampleBorrow<Self::X> + Sized,
     {
         UniformVelocity(UniformVec2::new(low.borrow().0, high.borrow().0))
     }
 
     fn new_inclusive<B1, B2>(low: B1, high: B2) -> Self
-        where B1: SampleBorrow<Self::X> + Sized,
-              B2: SampleBorrow<Self::X> + Sized
+    where
+        B1: SampleBorrow<Self::X> + Sized,
+        B2: SampleBorrow<Self::X> + Sized,
     {
         UniformSampler::new(low, high)
     }
@@ -87,15 +96,17 @@ impl UniformSampler for UniformAcceleration {
     type X = Acceleration;
 
     fn new<B1, B2>(low: B1, high: B2) -> Self
-        where B1: SampleBorrow<Self::X> + Sized,
-              B2: SampleBorrow<Self::X> + Sized
+    where
+        B1: SampleBorrow<Self::X> + Sized,
+        B2: SampleBorrow<Self::X> + Sized,
     {
         UniformAcceleration(UniformVec2::new(low.borrow().0, high.borrow().0))
     }
 
     fn new_inclusive<B1, B2>(low: B1, high: B2) -> Self
-        where B1: SampleBorrow<Self::X> + Sized,
-              B2: SampleBorrow<Self::X> + Sized
+    where
+        B1: SampleBorrow<Self::X> + Sized,
+        B2: SampleBorrow<Self::X> + Sized,
     {
         UniformSampler::new(low, high)
     }
