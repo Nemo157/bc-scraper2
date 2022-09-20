@@ -1,33 +1,49 @@
+use anyhow::Error;
 use ggez::{event::EventHandler, input::mouse::MouseButton, Context, ContextBuilder, GameResult};
 use hecs::World;
 use std::time::{Duration, Instant};
+use tracing_subscriber::layer::SubscriberExt as _;
+use tracing_subscriber::util::SubscriberInitExt as _;
+use url::Url;
 
 mod data;
 mod phys;
 mod sim;
 mod ui;
+mod web;
 
 use crate::phys::{Distance, Position};
 
 const SIM_FREQ: u64 = 20;
 const SIM_TIME: Duration = Duration::from_millis(1000 / SIM_FREQ);
 
+#[fehler::throws]
 fn main() {
+    tracing_subscriber::registry()
+        .with(tracing_subscriber::fmt::layer())
+        .with(
+            tracing_subscriber::EnvFilter::builder()
+                .with_default_directive(tracing_subscriber::filter::LevelFilter::INFO.into())
+                .with_env_var("BC_SCRAPER_2_LOG")
+                .from_env()?,
+        )
+        .init();
+
     // Make a Context and an EventLoop.
-    let (mut ctx, mut event_loop) = ContextBuilder::new("game_name", "author_name")
-        .build()
-        .unwrap();
+    let (mut ctx, mut event_loop) =
+        ContextBuilder::new("bc-scraper2", "mind your own bizness").build()?;
 
     // Create an instance of your event handler.
     // Usually, you should provide it with the Context object
     // so it can load resources like images during setup.
     let mut ui = Ui::new(&mut ctx);
 
+    let client = web::Client::new()?;
+    let data = client.get(Url::parse("https://example.org")?)?;
+    tracing::info!("data length: {}", data.len());
+
     // Run!
-    match ggez::event::run(&mut ctx, &mut event_loop, &mut ui) {
-        Ok(_) => println!("Exited cleanly."),
-        Err(e) => println!("Error occured: {}", e),
-    }
+    ggez::event::run(&mut ctx, &mut event_loop, &mut ui)?;
 }
 
 struct Ui {
