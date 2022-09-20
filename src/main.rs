@@ -1,6 +1,6 @@
 use hecs::World;
 use std::time::{Instant, Duration};
-use ggez::{Context, ContextBuilder, GameResult, event::EventHandler};
+use ggez::{Context, ContextBuilder, GameResult, event::EventHandler, input::mouse::MouseButton};
 
 mod phys;
 mod sim;
@@ -49,6 +49,14 @@ impl Ui {
 }
 
 impl EventHandler for Ui {
+    fn mouse_button_down_event(&mut self, ctx: &mut Context, button: MouseButton, x: f32, y: f32) {
+        ui::mouse_down(&mut self.world, ctx, button, Position::new(x, y));
+    }
+
+    fn mouse_button_up_event(&mut self, ctx: &mut Context, button: MouseButton, x: f32, y: f32) {
+        ui::mouse_up(&mut self.world, ctx, button, Position::new(x, y));
+    }
+
     fn mouse_motion_event(&mut self, ctx: &mut Context, x: f32, y: f32, dx: f32, dy: f32) {
         ui::mouse_motion(&mut self.world, ctx, Position::new(x, y), Distance::new(dx, dy));
     }

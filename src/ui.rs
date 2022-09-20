@@ -4,17 +4,17 @@ use ggez::{Context, input::mouse::MouseButton, graphics::{Rect, Mesh, DrawMode, 
 
 use crate::{
     phys::{Position, Velocity, Distance},
-    data::{Relationship, UnderMouse, User, Album, Camera},
+    data::{Relationship, UnderMouse, User, Album, Camera, Dragged},
 };
 
 const LIGHT_RED: Color = Color::new(1.0, 0.0, 0.0, 0.2);
 
 fn ensure_meshes(world: &mut World, ctx: &mut Context) {
-    let to_add_users = world.query::<hecs::Without<Mesh, &User>>().iter()
+    let to_add_users = world.query_mut::<hecs::Without<Mesh, &User>>().into_iter()
         .map(|(entity, _)| entity)
         .collect::<Vec<_>>();
 
-    let to_add_albums = world.query::<hecs::Without<Mesh, &Album>>().iter()
+    let to_add_albums = world.query_mut::<hecs::Without<Mesh, &Album>>().into_iter()
         .map(|(entity, _)| entity)
         .collect::<Vec<_>>();
 
@@ -34,14 +34,14 @@ fn ensure_meshes(world: &mut World, ctx: &mut Context) {
 }
 
 fn transform(world: &mut World, ctx: &mut Context) {
-    for (_, pos) in &mut world.query::<hecs::With<Camera, &Position>>() {
+    for (_, pos) in world.query_mut::<hecs::With<Camera, &Position>>() {
         ggez::graphics::set_transform(ctx, DrawParam::new().dest([pos.0.x, pos.0.y]).to_matrix());
         ggez::graphics::apply_transformations(ctx).unwrap();
     }
 }
 
 fn draw_entities(world: &mut World, ctx: &mut Context, delta: Duration) {
-    for (_, (mesh, pos, vel)) in &mut world.query::<(&Mesh, &Position, Option<hecs::Without<UnderMouse, &Velocity>>)>() {
+    for (_, (mesh, pos, vel)) in world.query_mut::<(&Mesh, &Position, Option<hecs::Without<UnderMouse, &Velocity>>)>() {
         let pos = vel.map(|vel| pos + *vel * delta).unwrap_or(*pos);
         ggez::graphics::draw(ctx, mesh, DrawParam::from(([pos.0.x, pos.0.y],))).unwrap();
     }
@@ -78,27 +78,41 @@ pub fn draw(world: &mut World, ctx: &mut Context, delta: Duration) {
 fn update_drag(world: &mut World, mouse_pos: Position, delta: Distance) {
     let mut dragged_item = false;
 
-    for (_, pos) in &mut world.query::<hecs::With<UnderMouse, &mut Position>>() {
+    for (_, pos) in world.query_mut::<hecs::With<Dragged, &mut Position>>() {
         *pos = mouse_pos;
         dragged_item = true;
     }
 
     if !dragged_item {
-        for (_, pos) in &mut world.query::<hecs::With<Camera, &mut Position>>() {
+        for (_, pos) in world.query_mut::<hecs::With<Camera, &mut Position>>() {
             *pos += delta;
         }
     }
 }
 
+fn start_drag(world: &mut World) {
+    let to_add = world.query_mut::<hecs::With<UnderMouse, ()>>().into_iter().map(|(entity, ())| entity).collect::<Vec<_>>();
+    for entity in to_add {
+        world.insert_one(entity, Dragged).unwrap();
+    }
+}
+
+fn stop_drag(world: &mut World) {
+    let to_remove = world.query_mut::<hecs::With<Dragged, ()>>().into_iter().map(|(entity, ())| entity).collect::<Vec<_>>();
+    for entity in to_remove {
+        world.remove_one::<Dragged>(entity).unwrap();
+    }
+}
+
 fn offset_to_camera(world: &mut World, mut mouse_pos: Position) -> Position {
-    for (_, pos) in &mut world.query::<hecs::With<Camera, &mut Position>>() {
+    for (_, pos) in world.query_mut::<hecs::With<Camera, &mut Position>>() {
         mouse_pos.0 -= pos.0;
     }
     mouse_pos
 }
 
 fn update_under_mouse(world: &mut World, mouse_pos: Position) {
-    let to_remove = world.query::<hecs::With<UnderMouse, &Position>>().iter()
+    let to_remove = world.query_mut::<hecs::With<UnderMouse, &Position>>().into_iter()
         .filter(|(_, pos)| {
             let dist = *pos - mouse_pos;
             dist.0.x.abs() > 5.0 || dist.0.y.abs() > 5.0
@@ -106,7 +120,7 @@ fn update_under_mouse(world: &mut World, mouse_pos: Position) {
         .map(|(entity, _)| entity)
         .collect::<Vec<_>>();
 
-    let to_add = world.query::<hecs::Without<UnderMouse, &Position>>().iter()
+    let to_add = world.query_mut::<hecs::Without<UnderMouse, &Position>>().into_iter()
         .filter(|(_, pos)| {
             let dist = *pos - mouse_pos;
             dist.0.x.abs() < 5.0 && dist.0.y.abs() < 5.0
@@ -120,6 +134,20 @@ fn update_under_mouse(world: &mut World, mouse_pos: Position) {
 
     for entity in to_add {
         world.insert_one(entity, UnderMouse).unwrap();
+    }
+}
+
+pub fn mouse_down(world: &mut World, ctx: &mut Context, button: MouseButton, pos: Position) {
+    let _ = (ctx, pos);
+    if button == MouseButton::Left {
+        start_drag(world);
+    }
+}
+
+pub fn mouse_up(world: &mut World, ctx: &mut Context, button: MouseButton, pos: Position) {
+    let _ = (ctx, pos);
+    if button == MouseButton::Left {
+        stop_drag(world);
     }
 }
 

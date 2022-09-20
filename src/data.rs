@@ -14,6 +14,9 @@ pub struct Relationship {
 pub struct UnderMouse;
 
 #[derive(Debug)]
+pub struct Dragged;
+
+#[derive(Debug)]
 pub struct Album;
 
 #[derive(Debug)]
