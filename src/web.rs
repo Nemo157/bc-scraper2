@@ -1,4 +1,4 @@
-use anyhow::Error;
+use eyre::Error;
 use chrono::{offset::Utc, DateTime};
 use rusqlite::{named_params, OptionalExtension};
 use url::Url;
@@ -30,9 +30,23 @@ impl Client {
     }
 
     #[fehler::throws]
-    pub(crate) fn get(&self, url: impl Into<Url>) -> String {
-        let url = url.into();
-        if let Some((retrieved, data)) = self
+    #[tracing::instrument(skip(self), fields(%url))]
+    pub(crate) fn get(&self, url: &Url) -> String {
+        if let Some((retrieved, data)) = self.get_from_cache(url)? {
+            tracing::info!("got cached data for {url} from {retrieved}");
+            data
+        } else {
+            tracing::info!("retrieving {url}");
+            let data = self.get_from_server(url)?;
+            self.add_to_cache(url, &data)?;
+            data
+        }
+    }
+
+    #[fehler::throws]
+    #[tracing::instrument(skip(self), fields(%url))]
+    fn get_from_cache(&self, url: &Url) -> Option<(DateTime<Utc>, String)> {
+        self
             .cache
             .query_row(
                 "select retrieved, data from pages where url = :url",
@@ -45,17 +59,20 @@ impl Client {
                 },
             )
             .optional()?
-        {
-            tracing::info!("got cached data for {url} from {retrieved}");
-            data
-        } else {
-            tracing::info!("retrieving {url}");
-            let data = self.client.get(url.clone()).send()?.text()?;
-            self.cache.execute(
-                "insert into pages values (:url, :retrieved, :data)",
-                named_params!(":url": url, ":retrieved": Utc::now(), ":data": &data),
-            )?;
-            data
-        }
+    }
+
+    #[fehler::throws]
+    #[tracing::instrument(skip(self), fields(%url))]
+    fn get_from_server(&self, url: &Url) -> String {
+        self.client.get(url.clone()).send()?.text()?
+    }
+
+    #[fehler::throws]
+    #[tracing::instrument(skip(self, data), fields(%url, data_len=data.len()))]
+    fn add_to_cache(&self, url: &Url, data: &str) {
+        self.cache.execute(
+            "insert into pages values (:url, :retrieved, :data)",
+            named_params!(":url": url, ":retrieved": Utc::now(), ":data": &data),
+        )?;
     }
 }

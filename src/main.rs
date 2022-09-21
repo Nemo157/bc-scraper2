@@ -1,4 +1,4 @@
-use anyhow::Error;
+use eyre::Error;
 use ggez::{event::EventHandler, input::mouse::MouseButton, Context, ContextBuilder, GameResult};
 use hecs::World;
 use std::time::{Duration, Instant};
@@ -11,6 +11,7 @@ mod phys;
 mod sim;
 mod ui;
 mod web;
+mod scrape;
 
 use crate::phys::{Distance, Position};
 
@@ -20,14 +21,16 @@ const SIM_TIME: Duration = Duration::from_millis(1000 / SIM_FREQ);
 #[fehler::throws]
 fn main() {
     tracing_subscriber::registry()
-        .with(tracing_subscriber::fmt::layer())
+        .with(tracing_subscriber::fmt::layer().pretty())
         .with(
             tracing_subscriber::EnvFilter::builder()
                 .with_default_directive(tracing_subscriber::filter::LevelFilter::INFO.into())
                 .with_env_var("BC_SCRAPER_2_LOG")
                 .from_env()?,
         )
+        .with(tracing_error::ErrorLayer::default())
         .init();
+    color_eyre::install()?;
 
     // Make a Context and an EventLoop.
     let (mut ctx, mut event_loop) =
@@ -39,8 +42,8 @@ fn main() {
     let mut ui = Ui::new(&mut ctx);
 
     let client = web::Client::new()?;
-    let data = client.get(Url::parse("https://example.org")?)?;
-    tracing::info!("data length: {}", data.len());
+    let scraper = scrape::Scraper::new(client);
+    scraper.scrape_album(&Url::parse("https://yusuketsutsumi.bandcamp.com/album/a-grave-by-the-sea")?)?;
 
     // Run!
     ggez::event::run(&mut ctx, &mut event_loop, &mut ui)?;
