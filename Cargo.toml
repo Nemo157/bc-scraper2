@@ -2,9 +2,7 @@
 name = "bc-scraper2"
 version = "0.1.0"
 authors = ["Wim Looman <wim@nemo157.com>"]
-edition = "2018"
-
-# See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
+edition = "2021"
 
 [dependencies]
 hecs = "0.5.2"
@@ -12,13 +10,18 @@ ggez = "0.5.1"
 rand = "0.7.3"
 rand_distr = "0.2.2"
 rayon = "1.3.0"
-reqwest = { version = "0.11.12", default-features = false, features = ["blocking", "native-tls", "gzip", "brotli"] }
+reqwest = { version = "0.11.12", default-features = false, features = ["blocking", "native-tls", "gzip", "brotli", "json"] }
 url = { version = "2.3.1", default-features = false }
 chrono = { version = "0.4.22", default-features = false }
-rusqlite = { version = "0.28.0", default-features = false, features = ["chrono", "url", "bundled"] }
+rusqlite = { version = "0.28.0", default-features = false, features = ["chrono", "url", "bundled", "serde_json"] }
 fehler = { version = "1.0.0", default-features = false }
 tracing = { version = "0.1.36", default-features = false, features = ["attributes", "log"] }
 tracing-subscriber = { version = "0.3.15", default-features = false, features = ["std", "env-filter", "fmt", "ansi"] }
 color-eyre = { version = "0.6.2", default-features = false, features = ["capture-spantrace", "track-caller"] }
 eyre = { version = "0.6.8", default-features = false, features = ["track-caller"] }
 tracing-error = { version = "0.2.0", default-features = false }
+scraper = { version = "0.13.0", default-features = false }
+serde = { version = "1.0.144", default-features = false, features = ["std", "derive"] }
+serde_json = { version = "1.0.85", default-features = false, features = ["std"] }
+tracing-tree = { version = "0.2.1", default-features = false }
+strum = { version = "0.24.1", default-features = false, features = ["derive"] }

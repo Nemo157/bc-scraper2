@@ -21,7 +21,7 @@ const SIM_TIME: Duration = Duration::from_millis(1000 / SIM_FREQ);
 #[fehler::throws]
 fn main() {
     tracing_subscriber::registry()
-        .with(tracing_subscriber::fmt::layer().pretty())
+        .with(tracing_tree::HierarchicalLayer::new(2))
         .with(
             tracing_subscriber::EnvFilter::builder()
                 .with_default_directive(tracing_subscriber::filter::LevelFilter::INFO.into())
@@ -44,6 +44,7 @@ fn main() {
     let client = web::Client::new()?;
     let scraper = scrape::Scraper::new(client);
     scraper.scrape_album(&Url::parse("https://yusuketsutsumi.bandcamp.com/album/a-grave-by-the-sea")?)?;
+    scraper.scrape_album(&Url::parse("https://birdeatsbaby.bandcamp.com/album/the-bullet-within")?)?;
 
     // Run!
     ggez::event::run(&mut ctx, &mut event_loop, &mut ui)?;
