@@ -1,5 +1,6 @@
 use url::Url;
 use eyre::Error;
+use std::collections::HashMap;
 
 pub(crate) struct Scraper {
     client: crate::web::Client,
@@ -42,7 +43,7 @@ impl DocumentExt for scraper::Html {
 }
 
 #[derive(Debug)]
-struct Page {
+struct AlbumPage {
     properties: Properties,
     collectors: Collectors,
 }
@@ -50,7 +51,7 @@ struct Page {
 #[derive(Debug, serde::Deserialize)]
 struct Properties {
     item_type: String,
-    item_id: i64,
+    item_id: u64,
 }
 
 #[derive(Debug, serde::Deserialize)]
@@ -66,9 +67,9 @@ struct Collectors {
 
 #[derive(Debug, serde::Deserialize)]
 struct Review {
-    fan_id: i64,
+    fan_id: u64,
     fav_track_title: Option<String>,
-    image_id: i64,
+    image_id: u64,
     name: String,
     token: String,
     username: String,
@@ -77,8 +78,8 @@ struct Review {
 
 #[derive(Debug, serde::Deserialize)]
 struct Fan {
-    fan_id: i64,
-    image_id: i64,
+    fan_id: u64,
+    image_id: u64,
     name: String,
     username: String,
     token: String,
@@ -88,6 +89,42 @@ struct Fan {
 struct Thumbs {
     results: Vec<Fan>,
     more_available: bool,
+}
+
+#[derive(Debug, serde::Deserialize)]
+struct CollectionItem {
+    item_url: String,
+}
+
+#[derive(Debug, serde::Deserialize)]
+struct ItemCache {
+    collection: HashMap<String, CollectionItem>,
+}
+
+#[derive(Debug, serde::Deserialize)]
+struct CollectionData {
+    last_token: String,
+    sequence: Vec<String>
+}
+
+#[derive(Debug, serde::Deserialize)]
+struct FanData {
+    fan_id: u64,
+}
+
+#[derive(Debug, serde::Deserialize)]
+struct FanPage {
+    fan_data: FanData,
+    collection_count: usize,
+    collection_data: CollectionData,
+    item_cache: ItemCache,
+}
+
+#[derive(Debug, serde::Deserialize)]
+struct Collections {
+    more_available: bool,
+    last_token: String,
+    items: Vec<CollectionItem>,
 }
 
 impl Scraper {
@@ -100,23 +137,49 @@ impl Scraper {
     pub(crate) fn scrape_album(&self, url: &Url) {
         let page = self.scrape_album_page(url)?;
 
-        tracing::info!("thumbs: {}", page.collectors.thumbs.len());
-        tracing::info!("shown thumbs: {}", page.collectors.shown_thumbs.len());
-        tracing::info!("more thumbs: {}", page.collectors.more_thumbs_available);
+        let mut thumbs = page.collectors.thumbs;
+        let mut more_available = page.collectors.more_thumbs_available;
 
-        if page.collectors.more_thumbs_available {
-            self.scrape_collectors_api(&url.join("/api/tralbumcollectors/2/thumbs")?, &page.properties, &page.collectors.thumbs.last().unwrap().token)?;
+        while more_available {
+            let token = &thumbs.last().unwrap().token;
+            let response = self.scrape_collectors_api(url, &page.properties, token)?;
+            thumbs.extend(response.results);
+            more_available = response.more_available;
         }
+
+        tracing::info!("total thumbs: {}", thumbs.len());
+        let fans = Vec::from_iter(page.collectors.reviews.into_iter().map(|review| review.username).chain(thumbs.into_iter().map(|thumb| thumb.username)));
+        tracing::info!("total fans: {}", fans.len());
+    }
+
+    #[fehler::throws]
+    #[tracing::instrument(skip(self))]
+    pub(crate) fn scrape_fan(&self, fan: &str) {
+        let url = Url::parse("https://bandcamp.com")?.join(fan)?;
+        let mut page = self.scrape_fan_page(&url)?;
+
+        let mut albums = Result::<Vec<_>, _>::from_iter(page.collection_data.sequence.into_iter().map(|s| page.item_cache.collection.remove(&s).ok_or_else(|| eyre::eyre!("cache missing collection item"))))?;
+        let mut last_token = page.collection_data.last_token;
+        let mut more_available = albums.len() < page.collection_count;
+
+        while more_available {
+            let response = self.scrape_collections_api(page.fan_data.fan_id, &last_token)?;
+            albums.extend(response.items);
+            more_available = response.more_available;
+            last_token = response.last_token;
+        }
+
+        tracing::info!("total albums: {}", albums.len());
     }
 
     #[fehler::throws]
     #[tracing::instrument(skip(self), fields(%url))]
-    fn scrape_album_page(&self, url: &Url) -> Page {
+    fn scrape_album_page(&self, url: &Url) -> AlbumPage {
         let data = self.client.get(url)?;
         let document = scraper::Html::parse_document(&data);
         let properties = document.try_select_one("meta[name=bc-page-properties]")?.value().attr("content").ok_or_else(|| eyre::eyre!("missing data-blob"))?.parse_json()?;
         let collectors = document.try_select_one("#collectors-data")?.value().attr("data-blob").ok_or_else(|| eyre::eyre!("missing data-blob"))?.parse_json()?;
-        Page {
+        AlbumPage {
             properties,
             collectors,
         }
@@ -124,12 +187,32 @@ impl Scraper {
 
     #[fehler::throws]
     #[tracing::instrument(skip(self), fields(%url))]
-    fn scrape_collectors_api(&self, url: &Url, props: &Properties, token: &str) -> Thumbs {
-        self.client.post(url, &serde_json::json!({
+    fn scrape_fan_page(&self, url: &Url) -> FanPage {
+        let data = self.client.get(url)?;
+        let document = scraper::Html::parse_document(&data);
+        document.try_select_one("#pagedata")?.value().attr("data-blob").ok_or_else(|| eyre::eyre!("missing data-blob"))?.parse_json()?
+    }
+
+    #[fehler::throws]
+    #[tracing::instrument(skip(self), fields(%base_url))]
+    fn scrape_collectors_api(&self, base_url: &Url, props: &Properties, token: &str) -> Thumbs {
+        let url = base_url.join("/api/tralbumcollectors/2/thumbs")?;
+        self.client.post(&url, &serde_json::json!({
             "tralbum_type": props.item_type,
             "tralbum_id": props.item_id,
             "token": token,
-            "count": 100,
+            "count": 80,
+        }))?.parse_json()?
+    }
+
+    #[fehler::throws]
+    #[tracing::instrument(skip(self))]
+    fn scrape_collections_api(&self, fan_id: u64, token: &str) -> Collections {
+        let url = Url::parse("https://bandcamp.com/api/fancollection/1/collection_items")?;
+        self.client.post(&url, &serde_json::json!({
+            "fan_id": fan_id,
+            "older_than_token": token,
+            "count": 20,
         }))?.parse_json()?
     }
 }

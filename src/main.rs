@@ -45,6 +45,7 @@ fn main() {
     let scraper = scrape::Scraper::new(client);
     scraper.scrape_album(&Url::parse("https://yusuketsutsumi.bandcamp.com/album/a-grave-by-the-sea")?)?;
     scraper.scrape_album(&Url::parse("https://birdeatsbaby.bandcamp.com/album/the-bullet-within")?)?;
+    scraper.scrape_fan("0-0-17")?;
 
     // Run!
     ggez::event::run(&mut ctx, &mut event_loop, &mut ui)?;

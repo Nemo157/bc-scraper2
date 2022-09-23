@@ -2,10 +2,12 @@ use eyre::Error;
 use chrono::{offset::Utc, DateTime};
 use rusqlite::{named_params, OptionalExtension, types::{ToSqlOutput, ValueRef}, ToSql};
 use url::Url;
+use std::{time::{Instant, Duration}, cell::Cell};
 
 pub(crate) struct Client {
     client: reqwest::blocking::Client,
     cache: rusqlite::Connection,
+    last_request: Cell<Instant>,
 }
 
 #[derive(Debug, strum::AsRefStr)]
@@ -49,7 +51,6 @@ impl Client {
     pub(crate) fn new() -> Self {
         let mut cache = rusqlite::Connection::open("web-cache.sqlite")?;
 
-
         let migrations = [
             "create table pages (id integer primary key) strict",
             "alter table pages add column url text not null",
@@ -73,6 +74,7 @@ impl Client {
         Self {
             client: reqwest::blocking::Client::new(),
             cache,
+            last_request: Cell::new(Instant::now()),
         }
     }
 
@@ -130,15 +132,26 @@ impl Client {
         }
     }
 
+    fn check_delay(&self) {
+        const REQUEST_DELAY: Duration = Duration::from_secs(1);
+        if let Some(delay) = REQUEST_DELAY.checked_sub(self.last_request.get().elapsed()) {
+            tracing::info!(?delay, "delaying request");
+            std::thread::sleep(delay);
+        }
+        self.last_request.set(Instant::now());
+    }
+
     #[fehler::throws]
     #[tracing::instrument(skip(self), fields(%url))]
     fn get_from_server(&self, url: &Url) -> String {
+        self.check_delay();
         self.client.get(url.clone()).send()?.text()?
     }
 
     #[fehler::throws]
     #[tracing::instrument(skip(self), fields(%url, data=%data.dbg()))]
     fn post_to_server(&self, url: &Url, data: &serde_json::Value) -> String {
+        self.check_delay();
         self.client.post(url.clone()).json(data).send()?.text()?
     }
 
