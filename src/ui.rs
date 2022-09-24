@@ -71,6 +71,7 @@ fn draw_entities(world: &mut World, ctx: &mut Context, delta: Duration) {
 
 fn draw_relationships(world: &mut World, ctx: &mut Context, delta: Duration) {
     let mut mesh = MeshBuilder::new();
+    let mut has_any = false;
     for (_, rel) in &mut world.query::<&Relationship>() {
         let (pos1, vel1, pos2, vel2) = (
             world.get::<Position>(rel.from).unwrap(),
@@ -88,10 +89,13 @@ fn draw_relationships(world: &mut World, ctx: &mut Context, delta: Duration) {
                 LIGHT_RED,
             )
             .unwrap();
+            has_any = true;
         }
     }
-    let mesh = mesh.build(ctx).unwrap();
-    ggez::graphics::draw(ctx, &mesh, DrawParam::default()).unwrap();
+    if has_any {
+        let mesh = mesh.build(ctx).unwrap();
+        ggez::graphics::draw(ctx, &mesh, DrawParam::default()).unwrap();
+    }
 }
 
 pub fn draw(world: &mut World, ctx: &mut Context, delta: Duration) {

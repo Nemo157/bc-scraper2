@@ -7,8 +7,8 @@ edition = "2021"
 [dependencies]
 hecs = "0.5.2"
 ggez = "0.5.1"
-rand = "0.7.3"
-rand_distr = "0.2.2"
+rand = { version = "0.8.5", features = ["min_const_gen"] }
+rand_distr = "0.4.3"
 rayon = "1.3.0"
 reqwest = { version = "0.11.12", default-features = false, features = ["blocking", "native-tls", "gzip", "brotli", "json"] }
 url = { version = "2.3.1", default-features = false, features = ["serde"] }

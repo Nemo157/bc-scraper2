@@ -7,16 +7,16 @@ pub(crate) struct Scraper {
     client: super::web::Client,
 }
 
-#[derive(Debug)]
+#[derive(Debug, Clone)]
 pub struct User {
-    id: u64,
-    username: String,
+    pub id: u64,
+    pub username: String,
 }
 
-#[derive(Debug)]
+#[derive(Debug, Clone)]
 pub struct Album {
-    id: u64,
-    url: String,
+    pub id: u64,
+    pub url: String,
 }
 
 trait JsonExt {

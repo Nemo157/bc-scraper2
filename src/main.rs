@@ -4,6 +4,7 @@ use hecs::World;
 use std::time::{Duration, Instant};
 use tracing_subscriber::layer::SubscriberExt as _;
 use tracing_subscriber::util::SubscriberInitExt as _;
+use crossbeam::channel::{Sender, Receiver, TryRecvError};
 
 mod data;
 mod phys;
@@ -46,6 +47,10 @@ fn main() {
 struct Ui {
     world: World,
     last_update: Instant,
+    loader: data::Loader,
+    // Order matters, sender must be dropped before background thread
+    to_scrape_tx: Sender<background::Request>,
+    scraped_rx: Receiver<background::Response>,
     _background: background::Thread,
 }
 
@@ -54,23 +59,29 @@ impl Ui {
     pub fn new(ctx: &mut Context) -> Ui {
         let mut world = World::new();
 
-        data::spawn_random(&mut world);
+        let mut loader = data::Loader::new();
+
         ui::init(&mut world, ctx);
 
-        let (scraped_tx, _scraped_rx) = crossbeam::channel::bounded(1);
+        let (scraped_tx, scraped_rx) = crossbeam::channel::bounded(1);
         let (to_scrape_tx, to_scrape_rx) = crossbeam::channel::unbounded();
 
         let _background = background::Thread::spawn(to_scrape_rx, scraped_tx)?;
 
         to_scrape_tx.send(background::Request::Album { url: "https://yusuketsutsumi.bandcamp.com/album/a-grave-by-the-sea".into() })?;
-        to_scrape_tx.send(background::Request::Album { url: "https://birdeatsbaby.bandcamp.com/album/the-bullet-within".into() })?;
-        to_scrape_tx.send(background::Request::User { username: "0-0-17".into() })?;
+        to_scrape_tx.send(background::Request::Album { url: "https://yusuketsutsumi.bandcamp.com/album/artificial-naked-woman".into() })?;
+        to_scrape_tx.send(background::Request::Album { url: "https://yusuketsutsumi.bandcamp.com/album/suicide-beauty-girl".into() })?;
+        // to_scrape_tx.send(background::Request::Album { url: "https://birdeatsbaby.bandcamp.com/album/the-bullet-within".into() })?;
+        // to_scrape_tx.send(background::Request::User { username: "0-0-17".into() })?;
+        // loader.spawn_random(&mut world);
 
-        // Load/create resources here: images, fonts, sounds, etc.
         Ui {
             world,
-            _background,
             last_update: Instant::now(),
+            loader, 
+            to_scrape_tx,
+            scraped_rx,
+            _background,
         }
     }
 }
@@ -97,6 +108,27 @@ impl EventHandler for Ui {
         while ggez::timer::check_update_time(ctx, SIM_FREQ as u32) {
             ui::update(&mut self.world, ctx);
             sim::update(&mut self.world, SIM_TIME);
+            match self.scraped_rx.try_recv() {
+                Ok(response) => match response {
+                    background::Response::Fans(album, users) => {
+                        for user in users {
+                            self.loader.add_relationship(&mut self.world, user.id, album.id, );
+                        }
+                    }
+                    background::Response::Collection(user, albums) => {
+                        for album in albums {
+                            self.loader.add_relationship(&mut self.world, user.id, album.id, );
+                        }
+                    }
+                    background::Response::Album(_) | background::Response::User(_) => {
+                        // do nothing for now
+                    }
+                }
+                Err(TryRecvError::Empty) => {}
+                Err(TryRecvError::Disconnected) => {
+                    panic!("background thread ded?");
+                }
+            }
             self.last_update = Instant::now();
         }
 
@@ -104,7 +136,6 @@ impl EventHandler for Ui {
     }
 
     fn draw(&mut self, ctx: &mut Context) -> GameResult<()> {
-        // Draw code here...
         let delta = self.last_update.elapsed();
         ui::draw(&mut self.world, ctx, delta);
         ggez::graphics::present(ctx)

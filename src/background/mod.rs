@@ -1,9 +1,12 @@
 use crossbeam::channel::{Sender, Receiver};
 use eyre::Error;
 use url::Url;
+use std::cell::RefCell;
 
 mod scrape;
 mod web;
+
+pub use self::scrape::{User, Album};
 
 #[derive(Debug)]
 pub enum Request {
@@ -13,6 +16,10 @@ pub enum Request {
 
 #[derive(Debug)]
 pub enum Response {
+    User(User),
+    Album(Album),
+    Fans(Album, Vec<User>),
+    Collection(User, Vec<Album>),
 }
 
 #[derive(Debug)]
@@ -44,20 +51,20 @@ impl Drop for Thread {
 struct Background {
     scraper: self::scrape::Scraper,
     to_scrape: Receiver<Request>,
-    _scraped: Sender<Response>,
+    scraped: Sender<Response>,
 }
 
 impl Background {
     #[fehler::throws]
     fn new(
         to_scrape: Receiver<Request>,
-        _scraped: Sender<Response>,
+        scraped: Sender<Response>,
     ) -> Self {
         let scraper = self::scrape::Scraper::new(self::web::Client::new()?);
         Self {
             scraper,
             to_scrape,
-            _scraped,
+            scraped,
         }
     }
 
@@ -74,17 +81,21 @@ impl Background {
     fn handle_request(&self, request: Request) {
         match request {
             Request::User { username } => {
+                let mut user = RefCell::new(None);
                 self.scraper.scrape_fan(&username, |fan| {
-                    tracing::info!("scrapped {fan:?}");
+                    self.scraped.send(Response::User(fan.clone())).unwrap();
+                    user.replace(Some(fan));
                 }, |collection| {
-                    tracing::info!("collection count {}", collection.len());
+                    self.scraped.send(Response::Collection(user.borrow().clone().unwrap(), collection)).unwrap();
                 })?;
             }
             Request::Album { url } => {
-                self.scraper.scrape_album(&Url::parse(&url)?, |album| {
-                    tracing::info!("scrapped {album:?}");
+                let mut album = RefCell::new(None);
+                self.scraper.scrape_album(&Url::parse(&url)?, |new_album| {
+                    self.scraped.send(Response::Album(new_album.clone())).unwrap();
+                    album.replace(Some(new_album));
                 }, |fans| {
-                    tracing::info!("fans count {}", fans.len());
+                    self.scraped.send(Response::Fans(album.borrow().clone().unwrap(), fans)).unwrap();
                 })?;
             }
         }

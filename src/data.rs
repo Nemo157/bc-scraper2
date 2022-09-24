@@ -4,6 +4,7 @@ use rand::{
     seq::SliceRandom,
 };
 use rand_distr::Poisson;
+use std::collections::{BTreeSet, BTreeMap};
 
 use crate::phys::{Acceleration, Position, Velocity};
 
@@ -46,44 +47,51 @@ impl WorldExt for World {
     }
 }
 
-pub fn spawn_random(world: &mut World) {
-    let mut rng = rand::thread_rng();
+pub struct Loader {
+    albums: BTreeMap<u64, Entity>,
+    users: BTreeMap<u64, Entity>,
+    relationships: BTreeSet<(u64, u64)>,
+}
 
-    let mut albums = Vec::new();
-    for _ in 0..100 {
-        albums.push(world.spawn_at_random_location((Album,)));
+impl Loader {
+    pub fn new() -> Self {
+        Self { albums: BTreeMap::new(), users: BTreeMap::new(), relationships: BTreeSet::new() }
     }
 
-    let mut users = Vec::new();
-    for _ in 0..5 {
-        users.push(world.spawn_at_random_location((User,)));
-    }
-
-    let mut linked_albums = Vec::new();
-
-    for from in &users {
-        let count: u64 = Poisson::new(20.0).unwrap().sample(&mut rng);
-        for to in albums.drain(..(count as usize).min(albums.len())) {
-            linked_albums.push(to);
-            world.spawn((Relationship { from: *from, to },));
+    pub fn add_relationship(&mut self, world: &mut World, album_id: u64, user_id: u64) {
+        if self.relationships.insert((user_id, album_id)) {
+            let &mut album = self.albums.entry(album_id).or_insert_with(|| world.spawn_at_random_location((Album,)));
+            let &mut user = self.users.entry(user_id).or_insert_with(|| world.spawn_at_random_location((User,)));
+            world.spawn((Relationship { from: user, to: album },));
         }
     }
 
-    for from in &users {
-        let count: u64 = Poisson::new(3.0).unwrap().sample(&mut rng);
-        for to in linked_albums.choose_multiple(&mut rng, count as usize) {
-            world.spawn((Relationship {
-                from: *from,
-                to: *to,
-            },));
-        }
-    }
+    pub fn spawn_random(&mut self, world: &mut World) {
+        let mut rng = rand::thread_rng();
 
-    for from in &albums {
-        let to = users.choose(&mut rng).unwrap();
-        world.spawn((Relationship {
-            from: *from,
-            to: *to,
-        },));
+        let mut albums = Vec::from_iter(rand::random::<[u64; 100]>());
+        let users = Vec::from_iter(rand::random::<[u64; 5]>());
+
+        let mut linked_albums = Vec::new();
+
+        for &from in &users {
+            let count: u64 = Poisson::new(20.0).unwrap().sample(&mut rng) as u64;
+            for to in albums.drain(..(count as usize).min(albums.len())) {
+                linked_albums.push(to);
+                self.add_relationship(world, from, to);
+            }
+        }
+
+        for &from in &users {
+            let count: u64 = Poisson::new(3.0).unwrap().sample(&mut rng) as u64;
+            for &to in linked_albums.choose_multiple(&mut rng, count as usize) {
+                self.add_relationship(world, from, to);
+            }
+        }
+
+        for &from in &albums {
+            let &to = users.choose(&mut rng).unwrap();
+            self.add_relationship(world, to, from);
+        }
     }
 }
