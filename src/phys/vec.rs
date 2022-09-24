@@ -1,24 +1,30 @@
+use noisy_float::types::R32;
+use num_traits::Float;
 use std::ops::{Add, AddAssign, Div, Mul, MulAssign, Neg, Sub, SubAssign};
 
 #[derive(Debug, Copy, Clone, Default)]
 pub struct Vec2 {
-    pub x: f32,
-    pub y: f32,
+    pub x: R32,
+    pub y: R32,
 }
 
 impl Vec2 {
-    pub fn taxicab(self) -> f32 {
+    pub fn taxicab(self) -> R32 {
         self.x.abs() + self.y.abs()
     }
 
-    pub fn chebyshev(self) -> f32 {
+    pub fn chebyshev(self) -> R32 {
         self.x.abs().max(self.y.abs())
+    }
+
+    pub fn euclid_squared(self) -> R32 {
+        self.x.abs() * self.x.abs() + self.y.abs() * self.y.abs()
     }
 }
 
 impl From<(f32, f32)> for Vec2 {
     fn from((x, y): (f32, f32)) -> Self {
-        Self { x, y }
+        Self { x: R32::new(x), y: R32::new(y) }
     }
 }
 

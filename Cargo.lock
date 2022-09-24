@@ -205,6 +205,9 @@ dependencies = [
  "fehler",
  "ggez",
  "hecs",
+ "mint",
+ "noisy_float",
+ "num-traits 0.2.15",
  "rand 0.8.5",
  "rand_distr",
  "rayon",
@@ -2106,6 +2109,15 @@ name = "nodrop"
 version = "0.1.14"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "72ef4a56884ca558e5ddb05a1d1e7e1bfd9a68d9ed024c21704cc98872dae1bb"
+
+[[package]]
+name = "noisy_float"
+version = "0.2.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "978fe6e6ebc0bf53de533cd456ca2d9de13de13856eda1518a285d7705a213af"
+dependencies = [
+ "num-traits 0.2.15",
+]
 
 [[package]]
 name = "nom"

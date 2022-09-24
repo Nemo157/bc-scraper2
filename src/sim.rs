@@ -37,7 +37,7 @@ fn repel(world: &mut World) {
     for (_, (pos1, mut acc1)) in &mut world.query::<(&Position, &mut Acceleration)>() {
         for (_, pos2) in &mut world.query::<&Position>() {
             let dist = pos1 - pos2;
-            let dsq = (dist.0.x * dist.0.x + dist.0.y * dist.0.y).max(0.001);
+            let dsq = dist.euclid_squared().raw().max(0.001);
             acc1 += Acceleration::from(dist.0 * 1000.0) / dsq;
         }
     }

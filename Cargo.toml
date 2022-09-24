@@ -27,3 +27,6 @@ tracing-tree = { version = "0.2.1", default-features = false }
 strum = { version = "0.24.1", default-features = false, features = ["derive"] }
 crossbeam = { version = "0.8.2", default-features = false, features = ["std"] }
 clap = { version = "=4.0.0-rc.1", default-features = false, features = ["derive", "color", "std", "help", "wrap_help"] }
+noisy_float = { version = "0.2.0", default-features = false }
+num-traits = { version = "0.2.15", default-features = false }
+mint = { version = "0.5.9", default-features = false }

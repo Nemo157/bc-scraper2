@@ -26,8 +26,8 @@ impl UniformSampler for UniformVec2 {
         B2: SampleBorrow<Self::X> + Sized,
     {
         UniformVec2(
-            UniformFloat::<f32>::new(low.borrow().x, high.borrow().x),
-            UniformFloat::<f32>::new(low.borrow().y, high.borrow().y),
+            UniformFloat::<f32>::new(low.borrow().x.raw(), high.borrow().x.raw()),
+            UniformFloat::<f32>::new(low.borrow().y.raw(), high.borrow().y.raw()),
         )
     }
 

@@ -1,3 +1,4 @@
+use noisy_float::types::R32;
 use std::ops::{Add, AddAssign};
 
 use super::Vec2;
@@ -10,12 +11,16 @@ impl Distance {
         Self::from((x, y))
     }
 
-    pub fn taxicab(self) -> f32 {
+    pub fn taxicab(self) -> R32 {
         self.0.taxicab()
     }
 
-    pub fn chebyshev(self) -> f32 {
+    pub fn chebyshev(self) -> R32 {
         self.0.chebyshev()
+    }
+
+    pub fn euclid_squared(self) -> R32 {
+        self.0.euclid_squared()
     }
 }
 

@@ -5,6 +5,8 @@ use ggez::{
 };
 use hecs::{World, Entity};
 use std::time::{Duration, Instant};
+use num_traits::Float;
+use mint::Point2;
 
 use crate::{
     data::{Album, Camera, Dragged, Relationship, UnderMouse, User},
@@ -12,6 +14,24 @@ use crate::{
 };
 
 const LIGHT_RED: Color = Color::new(1.0, 0.0, 0.0, 0.2);
+
+impl From<Position> for Point2<f32> {
+    fn from(pos: Position) -> Self {
+        [pos.0.x.raw(), pos.0.y.raw()].into()
+    }
+}
+
+impl From<&Position> for Point2<f32> {
+    fn from(pos: &Position) -> Self {
+        [pos.0.x.raw(), pos.0.y.raw()].into()
+    }
+}
+
+impl From<Point2<f32>> for Position {
+    fn from(pos: Point2<f32>) -> Self {
+        (pos.x, pos.y).into()
+    }
+}
 
 fn ensure_meshes(world: &mut World, ctx: &mut Context) {
     let to_add_users = world
@@ -53,7 +73,7 @@ fn ensure_meshes(world: &mut World, ctx: &mut Context) {
 
 fn transform(world: &mut World, ctx: &mut Context) {
     for (_, pos) in world.query_mut::<hecs::With<Camera, &Position>>() {
-        ggez::graphics::set_transform(ctx, DrawParam::new().dest([pos.0.x, pos.0.y]).to_matrix());
+        ggez::graphics::set_transform(ctx, DrawParam::new().dest(pos).to_matrix());
         ggez::graphics::apply_transformations(ctx).unwrap();
     }
 }
@@ -65,7 +85,7 @@ fn draw_entities(world: &mut World, ctx: &mut Context, delta: Duration) {
         Option<hecs::Without<UnderMouse, &Velocity>>,
     )>() {
         let pos = vel.map(|vel| pos + *vel * delta).unwrap_or(*pos);
-        ggez::graphics::draw(ctx, mesh, DrawParam::from(([pos.0.x, pos.0.y],))).unwrap();
+        ggez::graphics::draw(ctx, mesh, DrawParam::from((pos,))).unwrap();
     }
 }
 
@@ -82,9 +102,9 @@ fn draw_relationships(world: &mut World, ctx: &mut Context, delta: Duration) {
         let pos1 = vel1.map(|vel1| *pos1 + *vel1 * delta).unwrap_or(*pos1);
         let pos2 = vel2.map(|vel2| *pos2 + *vel2 * delta).unwrap_or(*pos2);
         let dist = pos1 - pos2;
-        if dist.0.x.abs() > 1.0 && dist.0.y.abs() > 1.0 {
+        if dist.chebyshev().abs() > 1.0 {
             mesh.line(
-                &[[pos1.0.x, pos1.0.y], [pos2.0.x, pos2.0.y]],
+                &[pos1, pos2],
                 0.5,
                 LIGHT_RED,
             )
@@ -221,7 +241,6 @@ pub fn mouse_motion(world: &mut World, ctx: &mut Context, pos: Position, delta: 
 
 pub fn update(world: &mut World, ctx: &mut Context) {
     let mouse_pos = ggez::input::mouse::position(ctx);
-    let mouse_pos: [f32; 2] = mouse_pos.into();
     let mouse_pos = offset_to_camera(world, Position::from(mouse_pos));
     update_under_mouse(world, mouse_pos);
 }
