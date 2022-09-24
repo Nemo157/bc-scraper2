@@ -7,7 +7,7 @@ use hecs::{World, Entity};
 use std::time::{Duration, Instant};
 
 use phys::{Distance, Position, Velocity, Float};
-use data::{Album, Camera, Dragged, Relationship, UnderMouse, User};
+use data::{Album, Camera, Dragged, Relationship, UnderMouse, User, Zoom};
 
 const LIGHT_RED: Color = Color::new(1.0, 0.0, 0.0, 0.2);
 
@@ -50,8 +50,8 @@ fn ensure_meshes(world: &mut World, ctx: &mut Context) {
 }
 
 fn transform(world: &mut World, ctx: &mut Context) {
-    for (_, pos) in world.query_mut::<hecs::With<Camera, &Position>>() {
-        ggez::graphics::set_transform(ctx, DrawParam::new().dest(pos).to_matrix());
+    for (_, (pos, zoom)) in world.query_mut::<hecs::With<Camera, (&Position, &Zoom)>>() {
+        ggez::graphics::set_transform(ctx, DrawParam::new().dest(pos).scale([zoom.0, zoom.0]).to_matrix());
         ggez::graphics::apply_transformations(ctx).unwrap();
     }
 }
@@ -160,8 +160,9 @@ fn stop_drag(world: &mut World) -> Option<Entity> {
 }
 
 fn offset_to_camera(world: &mut World, mut mouse_pos: Position) -> Position {
-    for (_, pos) in world.query_mut::<hecs::With<Camera, &mut Position>>() {
+    for (_, (pos, zoom)) in world.query_mut::<hecs::With<Camera, (&Position, &Zoom)>>() {
         mouse_pos.0 -= pos.0;
+        mouse_pos.0 /= zoom.0;
     }
     mouse_pos
 }
@@ -210,6 +211,16 @@ pub fn mouse_up(world: &mut World, ctx: &mut Context, button: MouseButton, pos: 
     }
 }
 
+pub fn mouse_wheel(world: &mut World, _ctx: &mut Context, mouse_pos: Position, wheel_vel: Velocity) {
+    if wheel_vel.0.y != 0.0 {
+        for (_, (pos, zoom)) in world.query_mut::<hecs::With<Camera, (&mut Position, &mut Zoom)>>() {
+            let zoom_ratio = if wheel_vel.0.y > 0.0 { 1.5 } else { 1.0 / 1.5 };
+            zoom.0 *= zoom_ratio;
+            *pos = mouse_pos + (*pos - mouse_pos) * zoom_ratio;
+        }
+    }
+}
+
 pub fn mouse_motion(world: &mut World, ctx: &mut Context, pos: Position, delta: Distance) {
     let pos = offset_to_camera(world, pos);
     if ggez::input::mouse::button_pressed(ctx, MouseButton::Left) {
@@ -224,5 +235,5 @@ pub fn update(world: &mut World, ctx: &mut Context) {
 }
 
 pub fn init(world: &mut World, _: &mut Context) {
-    world.spawn((Camera, Position::new(0.0, 0.0)));
+    world.spawn((Camera, Position::new(0.0, 0.0), Zoom(1.0)));
 }

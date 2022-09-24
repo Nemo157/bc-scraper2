@@ -1,5 +1,5 @@
 use noisy_float::types::R32;
-use std::ops::{Add, AddAssign};
+use std::ops::{Add, AddAssign, Mul};
 
 use super::Vec2;
 
@@ -95,5 +95,13 @@ impl AddAssign<Distance> for &mut Distance {
 impl AddAssign<&Distance> for &mut Distance {
     fn add_assign(&mut self, rhs: &Distance) {
         self.0 += rhs.0;
+    }
+}
+
+impl Mul<f32> for Distance {
+    type Output = Distance;
+
+    fn mul(self, rhs: f32) -> Self::Output {
+        Distance(self.0 * rhs)
     }
 }

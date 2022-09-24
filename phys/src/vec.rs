@@ -1,6 +1,6 @@
 use noisy_float::types::R32;
 use num_traits::Float;
-use std::ops::{Add, AddAssign, Div, Mul, MulAssign, Neg, Sub, SubAssign};
+use std::ops::{Add, AddAssign, Div, DivAssign, Mul, MulAssign, Neg, Sub, SubAssign};
 
 #[derive(Debug, Copy, Clone, Default)]
 pub struct Vec2 {
@@ -283,6 +283,20 @@ impl Div<&f32> for &Vec2 {
             x: self.x / rhs,
             y: self.y / rhs,
         }
+    }
+}
+
+impl DivAssign<f32> for Vec2 {
+    fn div_assign(&mut self, rhs: f32) {
+        self.x /= rhs;
+        self.y /= rhs;
+    }
+}
+
+impl DivAssign<f32> for &mut Vec2 {
+    fn div_assign(&mut self, rhs: f32) {
+        self.x /= rhs;
+        self.y /= rhs;
     }
 }
 

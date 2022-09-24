@@ -35,6 +35,9 @@ pub struct Album {
 #[derive(Debug)]
 pub struct Camera;
 
+#[derive(Debug)]
+pub struct Zoom(pub f32);
+
 trait WorldExt {
     fn spawn_at_random_location(&mut self, components: impl DynamicBundle) -> Entity;
 }

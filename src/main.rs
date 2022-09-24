@@ -7,7 +7,7 @@ use tracing_subscriber::util::SubscriberInitExt as _;
 use crossbeam::channel::{Sender, Receiver, TryRecvError};
 use clap::Parser;
 
-use phys::{Distance, Position};
+use phys::{Distance, Position, Velocity};
 use data::{Album, User};
 
 mod ui;
@@ -72,6 +72,7 @@ fn main() {
 struct Ui {
     world: World,
     last_update: Instant,
+    last_mouse_position: Position,
     loader: data::Loader,
     // Order matters, sender and receiver must be dropped before background thread to tell it to shutdown
     to_scrape_tx: Sender<background::Request>,
@@ -96,6 +97,7 @@ impl Ui {
         Ui {
             world,
             last_update: Instant::now(),
+            last_mouse_position: Position::new(0.0, 0.0),
             loader, 
             to_scrape_tx,
             scraped_rx,
@@ -120,11 +122,21 @@ impl EventHandler for Ui {
     }
 
     fn mouse_motion_event(&mut self, ctx: &mut Context, x: f32, y: f32, dx: f32, dy: f32) {
+        self.last_mouse_position = Position::new(x, y);
         ui::mouse_motion(
             &mut self.world,
             ctx,
-            Position::new(x, y),
+            self.last_mouse_position,
             Distance::new(dx, dy),
+        );
+    }
+
+    fn mouse_wheel_event(&mut self, ctx: &mut Context, x: f32, y: f32) {
+        ui::mouse_wheel(
+            &mut self.world,
+            ctx,
+            self.last_mouse_position,
+            Velocity::new(x, y),
         );
     }
 
