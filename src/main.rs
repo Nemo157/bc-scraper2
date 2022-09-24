@@ -1,5 +1,5 @@
 use eyre::Error;
-use ggez::{event::EventHandler, input::mouse::MouseButton, Context, ContextBuilder, GameResult, conf::WindowMode};
+use ggez::{event::EventHandler, input::{mouse::MouseButton, keyboard::{KeyCode, KeyMods}}, Context, ContextBuilder, GameResult, conf::WindowMode};
 use hecs::World;
 use std::time::{Duration, Instant};
 use tracing_subscriber::layer::SubscriberExt as _;
@@ -78,6 +78,7 @@ struct Ui {
     world: World,
     last_update: Instant,
     last_mouse_position: Position,
+    pause_sim: bool,
     loader: data::Loader,
     // Order matters, sender and receiver must be dropped before background thread to tell it to shutdown
     to_scrape_tx: Sender<background::Request>,
@@ -103,6 +104,7 @@ impl Ui {
             world,
             last_update: Instant::now(),
             last_mouse_position: Position::new(0.0, 0.0),
+            pause_sim: false,
             loader, 
             to_scrape_tx,
             scraped_rx,
@@ -112,6 +114,21 @@ impl Ui {
 }
 
 impl EventHandler for Ui {
+    fn key_down_event(&mut self, ctx: &mut Context, keycode: KeyCode, keymods: KeyMods, _repeat: bool) {
+        match keycode {
+            KeyCode::Space => {
+                self.pause_sim ^= true;
+            }
+            KeyCode::Escape => {
+                ggez::event::quit(ctx);
+            }
+            KeyCode::Q if keymods.contains(KeyMods::CTRL) => {
+                ggez::event::quit(ctx);
+            }
+            _ => {}
+        }
+    }
+
     fn mouse_button_down_event(&mut self, ctx: &mut Context, button: MouseButton, x: f32, y: f32) {
         ui::mouse_down(&mut self.world, ctx, button, Position::new(x, y));
     }
@@ -152,7 +169,9 @@ impl EventHandler for Ui {
     fn update(&mut self, ctx: &mut Context) -> GameResult<()> {
         while ggez::timer::check_update_time(ctx, SIM_FREQ as u32) {
             ui::update(&mut self.world, ctx);
-            sim::update(&mut self.world, SIM_TIME);
+            if !self.pause_sim {
+                sim::update(&mut self.world, SIM_TIME);
+            }
             match self.scraped_rx.try_recv() {
                 Ok(response) => match response {
                     background::Response::Fans(album, users) => {
@@ -181,7 +200,7 @@ impl EventHandler for Ui {
     }
 
     fn draw(&mut self, ctx: &mut Context) -> GameResult<()> {
-        let delta = self.last_update.elapsed();
+        let delta = if self.pause_sim { Duration::default() } else { self.last_update.elapsed() };
         ui::draw(&mut self.world, ctx, delta);
         ggez::graphics::present(ctx)
     }
