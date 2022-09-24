@@ -20,6 +20,18 @@ impl Vec2 {
     pub fn euclid_squared(self) -> R32 {
         self.x.abs() * self.x.abs() + self.y.abs() * self.y.abs()
     }
+
+    pub fn clamp(self, max: f32) -> Self {
+        if self.euclid_squared() > (max * max) {
+            self.unit() * max
+        } else {
+            self
+        }
+    }
+
+    pub fn unit(self) -> Self {
+        self / self.euclid_squared().sqrt().raw()
+    }
 }
 
 impl From<(f32, f32)> for Vec2 {

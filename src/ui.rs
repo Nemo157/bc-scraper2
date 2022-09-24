@@ -5,33 +5,11 @@ use ggez::{
 };
 use hecs::{World, Entity};
 use std::time::{Duration, Instant};
-use num_traits::Float;
-use mint::Point2;
 
-use crate::{
-    data::{Album, Camera, Dragged, Relationship, UnderMouse, User},
-    phys::{Distance, Position, Velocity},
-};
+use phys::{Distance, Position, Velocity, Float};
+use data::{Album, Camera, Dragged, Relationship, UnderMouse, User};
 
 const LIGHT_RED: Color = Color::new(1.0, 0.0, 0.0, 0.2);
-
-impl From<Position> for Point2<f32> {
-    fn from(pos: Position) -> Self {
-        [pos.0.x.raw(), pos.0.y.raw()].into()
-    }
-}
-
-impl From<&Position> for Point2<f32> {
-    fn from(pos: &Position) -> Self {
-        [pos.0.x.raw(), pos.0.y.raw()].into()
-    }
-}
-
-impl From<Point2<f32>> for Position {
-    fn from(pos: Point2<f32>) -> Self {
-        (pos.x, pos.y).into()
-    }
-}
 
 fn ensure_meshes(world: &mut World, ctx: &mut Context) {
     let to_add_users = world

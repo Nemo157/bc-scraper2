@@ -1,11 +1,8 @@
 use hecs::World;
 use rayon::iter::{IntoParallelIterator, ParallelIterator};
 use std::time::Duration;
-
-use crate::{
-    data::{Relationship, UnderMouse},
-    phys::{Acceleration, Position, Velocity},
-};
+use phys::{Acceleration, Position, Velocity};
+use data::{Relationship, UnderMouse};
 
 fn update_pos(world: &mut World, delta: Duration) {
     for (_, (mut pos, vel)) in
@@ -28,7 +25,7 @@ fn update_vel(world: &mut World, delta: Duration) {
         .for_each(|batch| {
             batch.for_each(|(_, (mut vel, acc))| {
                 vel *= 0.7;
-                vel += acc * delta;
+                *vel = (*vel + acc * delta).clamp(1000.0);
             })
         });
 }
@@ -51,8 +48,10 @@ fn attract(world: &mut World) {
         );
         // TODO: Unit for attraction
         let attraction = Acceleration::from((*pos2 - *pos1).0 * 2.0);
-        *world.get_mut::<Acceleration>(rel.from).unwrap() += attraction;
-        *world.get_mut::<Acceleration>(rel.to).unwrap() += -attraction;
+        let mut acc1 = world.get_mut::<Acceleration>(rel.from).unwrap();
+        let mut acc2 = world.get_mut::<Acceleration>(rel.to).unwrap();
+        *acc1 += attraction;
+        *acc2 += -attraction;
     }
 }
 

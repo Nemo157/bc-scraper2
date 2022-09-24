@@ -2,7 +2,7 @@ use crossbeam::channel::{Sender, Receiver, SendError};
 use eyre::Error;
 use url::Url;
 use std::cell::RefCell;
-use crate::data::{Album, User};
+use data::{Album, User};
 
 mod scrape;
 mod web;

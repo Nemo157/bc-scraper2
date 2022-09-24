@@ -1,7 +1,7 @@
 use url::Url;
 use eyre::{Error, Result};
 use std::collections::HashMap;
-use crate::data::{User, Album};
+use data::{User, Album};
 
 #[derive(Debug)]
 pub(crate) struct Scraper {

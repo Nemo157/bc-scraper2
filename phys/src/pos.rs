@@ -11,6 +11,24 @@ impl Position {
     }
 }
 
+impl From<Position> for mint::Point2<f32> {
+    fn from(pos: Position) -> Self {
+        [pos.0.x.raw(), pos.0.y.raw()].into()
+    }
+}
+
+impl From<&Position> for mint::Point2<f32> {
+    fn from(pos: &Position) -> Self {
+        [pos.0.x.raw(), pos.0.y.raw()].into()
+    }
+}
+
+impl From<mint::Point2<f32>> for Position {
+    fn from(pos: mint::Point2<f32>) -> Self {
+        (pos.x, pos.y).into()
+    }
+}
+
 impl From<Vec2> for Position {
     fn from(v: Vec2) -> Self {
         Self(v)

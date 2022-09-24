@@ -7,13 +7,12 @@ use tracing_subscriber::util::SubscriberInitExt as _;
 use crossbeam::channel::{Sender, Receiver, TryRecvError};
 use clap::Parser;
 
-mod data;
-mod phys;
-mod sim;
+use phys::{Distance, Position};
+use data::{Album, User};
+
 mod ui;
 mod background;
 
-use crate::{phys::{Distance, Position}, data::{Album, User}};
 
 const SIM_FREQ: u64 = 20;
 const SIM_TIME: Duration = Duration::from_millis(1000 / SIM_FREQ);

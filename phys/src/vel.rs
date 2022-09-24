@@ -12,6 +12,10 @@ impl Velocity {
     pub fn new(x: f32, y: f32) -> Self {
         Self::from((x, y))
     }
+
+    pub fn clamp(self, max: f32) -> Self {
+        Self(self.0.clamp(max))
+    }
 }
 
 impl From<Vec2> for Velocity {

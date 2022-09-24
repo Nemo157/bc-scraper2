@@ -6,7 +6,7 @@ use rand::{
 use rand_distr::Poisson;
 use std::{collections::{BTreeSet, BTreeMap}, time::Instant};
 
-use crate::phys::{Acceleration, Position, Velocity};
+use phys::{Acceleration, Position, Velocity};
 
 #[derive(Debug)]
 pub struct Relationship {
