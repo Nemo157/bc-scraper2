@@ -3,8 +3,8 @@ use ggez::{
     input::mouse::MouseButton,
     Context,
 };
-use hecs::World;
-use std::time::Duration;
+use hecs::{World, Entity};
+use std::time::{Duration, Instant};
 
 use crate::{
     data::{Album, Camera, Dragged, Relationship, UnderMouse, User},
@@ -135,24 +135,30 @@ fn update_drag(world: &mut World, mouse_pos: Position, delta: Distance) {
 
 fn start_drag(world: &mut World) {
     let to_add = world
-        .query_mut::<hecs::With<UnderMouse, ()>>()
+        .query_mut::<hecs::With<UnderMouse, &Position>>()
         .into_iter()
-        .map(|(entity, ())| entity)
+        .map(|(entity, &pos)| (entity, pos))
         .collect::<Vec<_>>();
-    for entity in to_add {
-        world.insert_one(entity, Dragged).unwrap();
+    for (entity, pos) in to_add {
+        world.insert_one(entity, Dragged(pos, Instant::now())).unwrap();
     }
 }
 
-fn stop_drag(world: &mut World) {
+fn stop_drag(world: &mut World) -> Option<Entity> {
+    static CLICK_DURATION: Duration = Duration::from_millis(100);
     let to_remove = world
-        .query_mut::<hecs::With<Dragged, ()>>()
+        .query_mut::<hecs::With<Dragged, &Position>>()
         .into_iter()
-        .map(|(entity, ())| entity)
+        .map(|(entity, &pos)| (entity, pos))
         .collect::<Vec<_>>();
-    for entity in to_remove {
-        world.remove_one::<Dragged>(entity).unwrap();
+    let mut clicked = None;
+    for (entity, pos) in to_remove {
+        let Dragged(start_pos, start_time) = world.remove_one::<Dragged>(entity).unwrap();
+        if (start_pos - pos).chebyshev() < 5.0 && start_time.elapsed() < CLICK_DURATION {
+            clicked = Some(entity);
+        }
     }
+    clicked
 }
 
 fn offset_to_camera(world: &mut World, mut mouse_pos: Position) -> Position {
@@ -166,9 +172,8 @@ fn update_under_mouse(world: &mut World, mouse_pos: Position) {
     let to_remove = world
         .query_mut::<hecs::With<UnderMouse, &Position>>()
         .into_iter()
-        .filter(|(_, pos)| {
-            let dist = *pos - mouse_pos;
-            dist.0.x.abs() > 5.0 || dist.0.y.abs() > 5.0
+        .filter(|(_, &pos)| {
+            (pos - mouse_pos).chebyshev() > 5.0
         })
         .map(|(entity, _)| entity)
         .collect::<Vec<_>>();
@@ -176,9 +181,8 @@ fn update_under_mouse(world: &mut World, mouse_pos: Position) {
     let to_add = world
         .query_mut::<hecs::Without<UnderMouse, &Position>>()
         .into_iter()
-        .filter(|(_, pos)| {
-            let dist = *pos - mouse_pos;
-            dist.0.x.abs() < 5.0 && dist.0.y.abs() < 5.0
+        .filter(|(_, &pos)| {
+            (pos - mouse_pos).chebyshev() < 5.0
         })
         .map(|(entity, _)| entity)
         .collect::<Vec<_>>();
@@ -199,10 +203,12 @@ pub fn mouse_down(world: &mut World, ctx: &mut Context, button: MouseButton, pos
     }
 }
 
-pub fn mouse_up(world: &mut World, ctx: &mut Context, button: MouseButton, pos: Position) {
+pub fn mouse_up(world: &mut World, ctx: &mut Context, button: MouseButton, pos: Position) -> Option<Entity> {
     let _ = (ctx, pos);
     if button == MouseButton::Left {
-        stop_drag(world);
+        stop_drag(world)
+    } else {
+        None
     }
 }
 

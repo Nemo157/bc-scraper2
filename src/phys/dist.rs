@@ -9,6 +9,14 @@ impl Distance {
     pub fn new(x: f32, y: f32) -> Self {
         Self::from((x, y))
     }
+
+    pub fn taxicab(self) -> f32 {
+        self.0.taxicab()
+    }
+
+    pub fn chebyshev(self) -> f32 {
+        self.0.chebyshev()
+    }
 }
 
 impl From<Vec2> for Distance {

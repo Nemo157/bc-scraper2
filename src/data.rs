@@ -4,7 +4,7 @@ use rand::{
     seq::SliceRandom,
 };
 use rand_distr::Poisson;
-use std::collections::{BTreeSet, BTreeMap};
+use std::{collections::{BTreeSet, BTreeMap}, time::Instant};
 
 use crate::phys::{Acceleration, Position, Velocity};
 
@@ -18,7 +18,7 @@ pub struct Relationship {
 pub struct UnderMouse;
 
 #[derive(Debug)]
-pub struct Dragged;
+pub struct Dragged(pub Position, pub Instant);
 
 #[derive(Debug, Clone)]
 pub struct User {

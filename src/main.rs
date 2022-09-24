@@ -13,7 +13,7 @@ mod sim;
 mod ui;
 mod background;
 
-use crate::phys::{Distance, Position};
+use crate::{phys::{Distance, Position}, data::{Album, User}};
 
 const SIM_FREQ: u64 = 20;
 const SIM_TIME: Duration = Duration::from_millis(1000 / SIM_FREQ);
@@ -111,7 +111,13 @@ impl EventHandler for Ui {
     }
 
     fn mouse_button_up_event(&mut self, ctx: &mut Context, button: MouseButton, x: f32, y: f32) {
-        ui::mouse_up(&mut self.world, ctx, button, Position::new(x, y));
+        if let Some(entity) = ui::mouse_up(&mut self.world, ctx, button, Position::new(x, y)) {
+            if let Ok(album) = self.world.query_one_mut::<&Album>(entity) {
+                self.to_scrape_tx.send(background::Request::Album { url: album.url.clone() }).unwrap();
+            } else if let Ok(user) = self.world.query_one_mut::<&User>(entity) {
+                self.to_scrape_tx.send(background::Request::User { url: user.url.clone() }).unwrap();
+            }
+        }
     }
 
     fn mouse_motion_event(&mut self, ctx: &mut Context, x: f32, y: f32, dx: f32, dy: f32) {
