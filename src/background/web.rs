@@ -4,6 +4,7 @@ use rusqlite::{named_params, OptionalExtension, types::{ToSqlOutput, ValueRef}, 
 use url::Url;
 use std::{time::{Instant, Duration}, cell::Cell};
 
+#[derive(Debug)]
 pub(crate) struct Client {
     client: reqwest::blocking::Client,
     cache: rusqlite::Connection,
@@ -81,7 +82,7 @@ impl Client {
     #[fehler::throws]
     #[tracing::instrument(skip(self), fields(%url))]
     pub(crate) fn get(&self, url: &Url) -> String {
-        if let Some((retrieved, response)) = self.get_from_cache(url, Method::Get, None)? {
+        if let Some(response) = self.get_from_cache(url, Method::Get, None)? {
             response
         } else {
             let response = self.get_from_server(url)?;
@@ -93,7 +94,7 @@ impl Client {
     #[fehler::throws]
     #[tracing::instrument(skip(self), fields(%url))]
     pub(crate) fn post(&self, url: &Url, data: &serde_json::Value) -> String {
-        if let Some((retrieved, response)) = self.get_from_cache(url, Method::Post, Some(data))? {
+        if let Some(response) = self.get_from_cache(url, Method::Post, Some(data))? {
             response
         } else {
             let response = self.post_to_server(url, data)?;
@@ -104,7 +105,7 @@ impl Client {
 
     #[fehler::throws]
     #[tracing::instrument(skip(self), fields(%url, data=%data.dbg()))]
-    fn get_from_cache(&self, url: &Url, method: Method, data: Option<&serde_json::Value>) -> Option<(DateTime<Utc>, String)> {
+    fn get_from_cache(&self, url: &Url, method: Method, data: Option<&serde_json::Value>) -> Option<String> {
         let result = self
             .cache
             .query_row(
@@ -125,7 +126,7 @@ impl Client {
 
         if let Some((retrieved, response)) = result {
             tracing::info!(%retrieved, "cache hit");
-            Some((retrieved, response))
+            Some(response)
         } else {
             tracing::info!("cache miss");
             None

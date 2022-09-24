@@ -1,4 +1,4 @@
-use hecs::{Entity, World};
+use hecs::{Entity, World, EntityBuilder, DynamicBundle};
 use rand::{
     distributions::{Distribution, Uniform},
     seq::SliceRandom,
@@ -28,29 +28,35 @@ pub struct User;
 #[derive(Debug)]
 pub struct Camera;
 
-pub fn spawn_random(world: &mut World) {
-    let mut rng = rand::thread_rng();
-    let positions = Uniform::new(Position::new(200.0, 200.0), Position::new(400.0, 400.0));
-    let velocities = Uniform::new(Velocity::new(-10.0, -10.0), Velocity::new(10.0, 10.0));
+trait WorldExt {
+    fn spawn_at_random_location(&mut self, components: impl DynamicBundle) -> Entity;
+}
 
-    let mut albums = Vec::new();
-    for _ in 0..100 {
-        albums.push(world.spawn((
-            Album,
+impl WorldExt for World {
+    fn spawn_at_random_location(&mut self, components: impl DynamicBundle) -> Entity {
+        let mut rng = rand::thread_rng();
+        let positions = Uniform::new(Position::new(200.0, 200.0), Position::new(400.0, 400.0));
+        let velocities = Uniform::new(Velocity::new(-10.0, -10.0), Velocity::new(10.0, 10.0));
+
+        self.spawn(EntityBuilder::new().add_bundle(components).add_bundle((
             positions.sample(&mut rng),
             velocities.sample(&mut rng),
             Acceleration::default(),
-        )));
+        )).build())
+    }
+}
+
+pub fn spawn_random(world: &mut World) {
+    let mut rng = rand::thread_rng();
+
+    let mut albums = Vec::new();
+    for _ in 0..100 {
+        albums.push(world.spawn_at_random_location((Album,)));
     }
 
     let mut users = Vec::new();
     for _ in 0..5 {
-        users.push(world.spawn((
-            User,
-            positions.sample(&mut rng),
-            velocities.sample(&mut rng),
-            Acceleration::default(),
-        )));
+        users.push(world.spawn_at_random_location((User,)));
     }
 
     let mut linked_albums = Vec::new();

@@ -4,14 +4,12 @@ use hecs::World;
 use std::time::{Duration, Instant};
 use tracing_subscriber::layer::SubscriberExt as _;
 use tracing_subscriber::util::SubscriberInitExt as _;
-use url::Url;
 
 mod data;
 mod phys;
 mod sim;
 mod ui;
-mod web;
-mod scrape;
+mod background;
 
 use crate::phys::{Distance, Position};
 
@@ -39,13 +37,7 @@ fn main() {
     // Create an instance of your event handler.
     // Usually, you should provide it with the Context object
     // so it can load resources like images during setup.
-    let mut ui = Ui::new(&mut ctx);
-
-    let client = web::Client::new()?;
-    let scraper = scrape::Scraper::new(client);
-    scraper.scrape_album(&Url::parse("https://yusuketsutsumi.bandcamp.com/album/a-grave-by-the-sea")?)?;
-    scraper.scrape_album(&Url::parse("https://birdeatsbaby.bandcamp.com/album/the-bullet-within")?)?;
-    scraper.scrape_fan("0-0-17")?;
+    let mut ui = Ui::new(&mut ctx)?;
 
     // Run!
     ggez::event::run(&mut ctx, &mut event_loop, &mut ui)?;
@@ -54,18 +46,30 @@ fn main() {
 struct Ui {
     world: World,
     last_update: Instant,
+    _background: background::Thread,
 }
 
 impl Ui {
+    #[fehler::throws]
     pub fn new(ctx: &mut Context) -> Ui {
         let mut world = World::new();
 
         data::spawn_random(&mut world);
         ui::init(&mut world, ctx);
 
+        let (scraped_tx, _scraped_rx) = crossbeam::channel::bounded(1);
+        let (to_scrape_tx, to_scrape_rx) = crossbeam::channel::unbounded();
+
+        let _background = background::Thread::spawn(to_scrape_rx, scraped_tx)?;
+
+        to_scrape_tx.send(background::Request::Album { url: "https://yusuketsutsumi.bandcamp.com/album/a-grave-by-the-sea".into() })?;
+        to_scrape_tx.send(background::Request::Album { url: "https://birdeatsbaby.bandcamp.com/album/the-bullet-within".into() })?;
+        to_scrape_tx.send(background::Request::User { username: "0-0-17".into() })?;
+
         // Load/create resources here: images, fonts, sounds, etc.
         Ui {
             world,
+            _background,
             last_update: Instant::now(),
         }
     }

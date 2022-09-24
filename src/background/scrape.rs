@@ -2,8 +2,21 @@ use url::Url;
 use eyre::Error;
 use std::collections::HashMap;
 
+#[derive(Debug)]
 pub(crate) struct Scraper {
-    client: crate::web::Client,
+    client: super::web::Client,
+}
+
+#[derive(Debug)]
+pub struct User {
+    id: u64,
+    username: String,
+}
+
+#[derive(Debug)]
+pub struct Album {
+    id: u64,
+    url: String,
 }
 
 trait JsonExt {
@@ -56,31 +69,22 @@ struct Properties {
 
 #[derive(Debug, serde::Deserialize)]
 struct Collectors {
-    band_thanks_text: String,
-    more_reviews_available: bool,
+    // TODO: load more reviews
+    // more_reviews_available: bool,
     more_thumbs_available: bool,
     reviews: Vec<Review>,
-    shown_reviews: Vec<Review>,
     thumbs: Vec<Fan>,
-    shown_thumbs: Vec<Fan>,
 }
 
 #[derive(Debug, serde::Deserialize)]
 struct Review {
     fan_id: u64,
-    fav_track_title: Option<String>,
-    image_id: u64,
-    name: String,
-    token: String,
     username: String,
-    why: String,
 }
 
 #[derive(Debug, serde::Deserialize)]
 struct Fan {
     fan_id: u64,
-    image_id: u64,
-    name: String,
     username: String,
     token: String,
 }
@@ -92,7 +96,8 @@ struct Thumbs {
 }
 
 #[derive(Debug, serde::Deserialize)]
-struct CollectionItem {
+pub struct CollectionItem {
+    item_id: u64,
     item_url: String,
 }
 
@@ -108,7 +113,7 @@ struct CollectionData {
 }
 
 #[derive(Debug, serde::Deserialize)]
-struct FanData {
+pub struct FanData {
     fan_id: u64,
 }
 
@@ -128,48 +133,52 @@ struct Collections {
 }
 
 impl Scraper {
-    pub(crate) fn new(client: crate::web::Client) -> Self {
+    pub(crate) fn new(client: super::web::Client) -> Self {
         Self { client }
     }
 
     #[fehler::throws]
-    #[tracing::instrument(skip(self), fields(%url))]
-    pub(crate) fn scrape_album(&self, url: &Url) {
+    #[tracing::instrument(skip(self, on_album, on_fans), fields(%url))]
+    pub(crate) fn scrape_album(&self, url: &Url, on_album: impl FnOnce(Album), mut on_fans: impl FnMut(Vec<User>)) {
         let page = self.scrape_album_page(url)?;
 
-        let mut thumbs = page.collectors.thumbs;
         let mut more_available = page.collectors.more_thumbs_available;
+        on_album(Album {
+            id: page.properties.item_id,
+            url: url.to_string(),
+        });
+
+        let mut token = page.collectors.thumbs.last().unwrap().token.clone();
+        on_fans(page.collectors.reviews.into_iter().map(|review| User { id: review.fan_id, username: review.username, }).collect());
+        on_fans(page.collectors.thumbs.into_iter().map(|thumb| User { id: thumb.fan_id, username: thumb.username, }).collect());
 
         while more_available {
-            let token = &thumbs.last().unwrap().token;
-            let response = self.scrape_collectors_api(url, &page.properties, token)?;
-            thumbs.extend(response.results);
+            let response = self.scrape_collectors_api(url, &page.properties, &token)?;
+            token = response.results.last().unwrap().token.clone();
             more_available = response.more_available;
+            on_fans(response.results.into_iter().map(|thumb| User { id: thumb.fan_id, username: thumb.username, }).collect());
         }
-
-        tracing::info!("total thumbs: {}", thumbs.len());
-        let fans = Vec::from_iter(page.collectors.reviews.into_iter().map(|review| review.username).chain(thumbs.into_iter().map(|thumb| thumb.username)));
-        tracing::info!("total fans: {}", fans.len());
     }
 
     #[fehler::throws]
-    #[tracing::instrument(skip(self))]
-    pub(crate) fn scrape_fan(&self, fan: &str) {
-        let url = Url::parse("https://bandcamp.com")?.join(fan)?;
+    #[tracing::instrument(skip(self, on_fan, on_collection))]
+    pub(crate) fn scrape_fan(&self, username: &str, on_fan: impl FnOnce(User), mut on_collection: impl FnMut(Vec<Album>)) {
+        let url = Url::parse("https://bandcamp.com")?.join(username)?;
         let mut page = self.scrape_fan_page(&url)?;
 
-        let mut albums = Result::<Vec<_>, _>::from_iter(page.collection_data.sequence.into_iter().map(|s| page.item_cache.collection.remove(&s).ok_or_else(|| eyre::eyre!("cache missing collection item"))))?;
+        on_fan(User { id: page.fan_data.fan_id, username: username.into() });
+
+        let items = Result::<Vec<_>, _>::from_iter(page.collection_data.sequence.into_iter().map(|s| page.item_cache.collection.remove(&s).ok_or_else(|| eyre::eyre!("cache missing collection item"))))?;
         let mut last_token = page.collection_data.last_token;
-        let mut more_available = albums.len() < page.collection_count;
+        let mut more_available = items.len() < page.collection_count;
+        on_collection(items.into_iter().map(|item| Album { id: item.item_id, url: item.item_url }).collect());
 
         while more_available {
             let response = self.scrape_collections_api(page.fan_data.fan_id, &last_token)?;
-            albums.extend(response.items);
             more_available = response.more_available;
             last_token = response.last_token;
+            on_collection(response.items.into_iter().map(|item| Album { id: item.item_id, url: item.item_url }).collect());
         }
-
-        tracing::info!("total albums: {}", albums.len());
     }
 
     #[fehler::throws]
