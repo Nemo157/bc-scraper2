@@ -1,22 +1,11 @@
 use url::Url;
 use eyre::Error;
 use std::collections::HashMap;
+use crate::data::{User, Album};
 
 #[derive(Debug)]
 pub(crate) struct Scraper {
     client: super::web::Client,
-}
-
-#[derive(Debug, Clone)]
-pub struct User {
-    pub id: u64,
-    pub username: String,
-}
-
-#[derive(Debug, Clone)]
-pub struct Album {
-    pub id: u64,
-    pub url: String,
 }
 
 trait JsonExt {
@@ -115,6 +104,7 @@ struct CollectionData {
 #[derive(Debug, serde::Deserialize)]
 pub struct FanData {
     fan_id: u64,
+    username: String,
 }
 
 #[derive(Debug, serde::Deserialize)]
@@ -149,24 +139,23 @@ impl Scraper {
         });
 
         let mut token = page.collectors.thumbs.last().unwrap().token.clone();
-        on_fans(page.collectors.reviews.into_iter().map(|review| User { id: review.fan_id, username: review.username, }).collect());
-        on_fans(page.collectors.thumbs.into_iter().map(|thumb| User { id: thumb.fan_id, username: thumb.username, }).collect());
+        on_fans(page.collectors.reviews.into_iter().map(|review| User { id: review.fan_id, url: format!("https://bandcamp.com/{}", review.username), }).collect());
+        on_fans(page.collectors.thumbs.into_iter().map(|thumb| User { id: thumb.fan_id, url: format!("https://bandcamp.com/{}", thumb.username), }).collect());
 
         while more_available {
             let response = self.scrape_collectors_api(url, &page.properties, &token)?;
             token = response.results.last().unwrap().token.clone();
             more_available = response.more_available;
-            on_fans(response.results.into_iter().map(|thumb| User { id: thumb.fan_id, username: thumb.username, }).collect());
+            on_fans(response.results.into_iter().map(|thumb| User { id: thumb.fan_id, url: format!("https://bandcamp.com/{}", thumb.username), }).collect());
         }
     }
 
     #[fehler::throws]
     #[tracing::instrument(skip(self, on_fan, on_collection))]
-    pub(crate) fn scrape_fan(&self, username: &str, on_fan: impl FnOnce(User), mut on_collection: impl FnMut(Vec<Album>)) {
-        let url = Url::parse("https://bandcamp.com")?.join(username)?;
+    pub(crate) fn scrape_fan(&self, url: &Url, on_fan: impl FnOnce(User), mut on_collection: impl FnMut(Vec<Album>)) {
         let mut page = self.scrape_fan_page(&url)?;
 
-        on_fan(User { id: page.fan_data.fan_id, username: username.into() });
+        on_fan(User { id: page.fan_data.fan_id, url: format!("https://bandcamp.com/{}", page.fan_data.username) });
 
         let items = Result::<Vec<_>, _>::from_iter(page.collection_data.sequence.into_iter().map(|s| page.item_cache.collection.remove(&s).ok_or_else(|| eyre::eyre!("cache missing collection item"))))?;
         let mut last_token = page.collection_data.last_token;

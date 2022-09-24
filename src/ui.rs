@@ -1,5 +1,5 @@
 use ggez::{
-    graphics::{Color, DrawMode, DrawParam, Mesh, MeshBuilder, Rect, BLACK, WHITE},
+    graphics::{Color, DrawMode, DrawParam, Mesh, MeshBuilder, Rect, BLACK, WHITE, Text},
     input::mouse::MouseButton,
     Context,
 };
@@ -98,9 +98,21 @@ fn draw_relationships(world: &mut World, ctx: &mut Context, delta: Duration) {
     }
 }
 
+fn draw_status_bar(world: &mut World, ctx: &mut Context) {
+    for (_, album) in world.query_mut::<hecs::With<UnderMouse, &Album>>() {
+        ggez::graphics::draw(ctx, Text::new("album: ").add(album.url.as_str()), DrawParam::from(([0.0, 0.0], BLACK))).unwrap();
+    }
+    for (_, user) in world.query_mut::<hecs::With<UnderMouse, &User>>() {
+        ggez::graphics::draw(ctx, Text::new("user: ").add(user.url.as_str()), DrawParam::from(([0.0, 0.0], BLACK))).unwrap();
+    }
+}
+
 pub fn draw(world: &mut World, ctx: &mut Context, delta: Duration) {
     ggez::graphics::clear(ctx, WHITE);
     ensure_meshes(world, ctx);
+    ggez::graphics::origin(ctx);
+    ggez::graphics::apply_transformations(ctx).unwrap();
+    draw_status_bar(world, ctx);
     transform(world, ctx);
     draw_entities(world, ctx, delta);
     draw_relationships(world, ctx, delta);

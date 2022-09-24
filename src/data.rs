@@ -20,11 +20,17 @@ pub struct UnderMouse;
 #[derive(Debug)]
 pub struct Dragged;
 
-#[derive(Debug)]
-pub struct Album;
+#[derive(Debug, Clone)]
+pub struct User {
+    pub id: u64,
+    pub url: String,
+}
 
-#[derive(Debug)]
-pub struct User;
+#[derive(Debug, Clone)]
+pub struct Album {
+    pub id: u64,
+    pub url: String,
+}
 
 #[derive(Debug)]
 pub struct Camera;
@@ -58,10 +64,10 @@ impl Loader {
         Self { albums: BTreeMap::new(), users: BTreeMap::new(), relationships: BTreeSet::new() }
     }
 
-    pub fn add_relationship(&mut self, world: &mut World, album_id: u64, user_id: u64) {
-        if self.relationships.insert((user_id, album_id)) {
-            let &mut album = self.albums.entry(album_id).or_insert_with(|| world.spawn_at_random_location((Album,)));
-            let &mut user = self.users.entry(user_id).or_insert_with(|| world.spawn_at_random_location((User,)));
+    pub fn add_relationship(&mut self, world: &mut World, album: &Album, user: &User) {
+        if self.relationships.insert((user.id, album.id)) {
+            let &mut album = self.albums.entry(album.id).or_insert_with(|| world.spawn_at_random_location((album.clone(),)));
+            let &mut user = self.users.entry(user.id).or_insert_with(|| world.spawn_at_random_location((user.clone(),)));
             world.spawn((Relationship { from: user, to: album },));
         }
     }
@@ -69,29 +75,29 @@ impl Loader {
     pub fn spawn_random(&mut self, world: &mut World, albums: u64, users: u64) {
         let mut rng = rand::thread_rng();
 
-        let mut albums = Vec::from_iter((0..albums).map(|_| rand::random()));
-        let users = Vec::from_iter((0..users).map(|_| rand::random()));
+        let mut albums = Vec::from_iter((0..albums).map(|_| { let id = rand::random(); Album { id, url: format!("no://random/album/{id}") } }));
+        let users = Vec::from_iter((0..users).map(|_| { let id = rand::random(); User { id, url: format!("no://random/user/{id}") } }));
 
         let mut linked_albums = Vec::new();
 
-        for &from in &users {
+        for user in &users {
             let count: u64 = Poisson::new(20.0).unwrap().sample(&mut rng) as u64;
-            for to in albums.drain(..(count as usize).min(albums.len())) {
-                linked_albums.push(to);
-                self.add_relationship(world, from, to);
+            for album in albums.drain(..(count as usize).min(albums.len())) {
+                linked_albums.push(album.clone());
+                self.add_relationship(world, &album, user);
             }
         }
 
-        for &from in &users {
+        for user in &users {
             let count: u64 = Poisson::new(3.0).unwrap().sample(&mut rng) as u64;
-            for &to in linked_albums.choose_multiple(&mut rng, count as usize) {
-                self.add_relationship(world, from, to);
+            for album in linked_albums.choose_multiple(&mut rng, count as usize) {
+                self.add_relationship(world, album, user);
             }
         }
 
-        for &from in &albums {
-            let &to = users.choose(&mut rng).unwrap();
-            self.add_relationship(world, to, from);
+        for album in &albums {
+            let user = users.choose(&mut rng).unwrap();
+            self.add_relationship(world, album, user);
         }
     }
 }

@@ -2,15 +2,14 @@ use crossbeam::channel::{Sender, Receiver};
 use eyre::Error;
 use url::Url;
 use std::cell::RefCell;
+use crate::data::{Album, User};
 
 mod scrape;
 mod web;
 
-pub use self::scrape::{User, Album};
-
 #[derive(Debug)]
 pub enum Request {
-    User { username: String },
+    User { url: String },
     Album { url: String },
 }
 
@@ -80,9 +79,9 @@ impl Background {
     #[tracing::instrument(skip(self))]
     fn handle_request(&self, request: Request) {
         match request {
-            Request::User { username } => {
-                let mut user = RefCell::new(None);
-                self.scraper.scrape_fan(&username, |fan| {
+            Request::User { url } => {
+                let user = RefCell::new(None);
+                self.scraper.scrape_fan(&Url::parse(&url)?, |fan| {
                     self.scraped.send(Response::User(fan.clone())).unwrap();
                     user.replace(Some(fan));
                 }, |collection| {
@@ -90,7 +89,7 @@ impl Background {
                 })?;
             }
             Request::Album { url } => {
-                let mut album = RefCell::new(None);
+                let album = RefCell::new(None);
                 self.scraper.scrape_album(&Url::parse(&url)?, |new_album| {
                     self.scraped.send(Response::Album(new_album.clone())).unwrap();
                     album.replace(Some(new_album));

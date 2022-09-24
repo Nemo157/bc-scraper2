@@ -59,7 +59,7 @@ fn main() {
     }
 
     for username in args.users {
-        ui.to_scrape_tx.send(background::Request::User { username })?;
+        ui.to_scrape_tx.send(background::Request::User { url: format!("https://bandcamp.com/{username}") })?;
     }
 
     if let [albums, users] = args.random[..] {
@@ -85,7 +85,7 @@ impl Ui {
     pub fn new(ctx: &mut Context) -> Ui {
         let mut world = World::new();
 
-        let mut loader = data::Loader::new();
+        let loader = data::Loader::new();
 
         ui::init(&mut world, ctx);
 
@@ -131,12 +131,12 @@ impl EventHandler for Ui {
                 Ok(response) => match response {
                     background::Response::Fans(album, users) => {
                         for user in users {
-                            self.loader.add_relationship(&mut self.world, user.id, album.id, );
+                            self.loader.add_relationship(&mut self.world, &album, &user);
                         }
                     }
                     background::Response::Collection(user, albums) => {
                         for album in albums {
-                            self.loader.add_relationship(&mut self.world, user.id, album.id, );
+                            self.loader.add_relationship(&mut self.world, &album, &user);
                         }
                     }
                     background::Response::Album(_) | background::Response::User(_) => {
