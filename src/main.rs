@@ -5,6 +5,7 @@ use std::time::{Duration, Instant};
 use tracing_subscriber::layer::SubscriberExt as _;
 use tracing_subscriber::util::SubscriberInitExt as _;
 use crossbeam::channel::{Sender, Receiver, TryRecvError};
+use clap::Parser;
 
 mod data;
 mod phys;
@@ -17,8 +18,21 @@ use crate::phys::{Distance, Position};
 const SIM_FREQ: u64 = 20;
 const SIM_TIME: Duration = Duration::from_millis(1000 / SIM_FREQ);
 
+#[derive(Parser, Debug)]
+#[command(version)]
+struct Args {
+    #[arg(long("user"), value_name("username"))]
+    users: Vec<String>,
+    #[arg(long("album"), value_name("url"))]
+    albums: Vec<String>,
+    #[arg(long, value_names(["albums", "users"]), num_args(2))]
+    random: Vec<u64>,
+}
+
 #[fehler::throws]
 fn main() {
+    let args = Args::parse();
+
     tracing_subscriber::registry()
         .with(tracing_tree::HierarchicalLayer::new(2))
         .with(
@@ -39,6 +53,18 @@ fn main() {
     // Usually, you should provide it with the Context object
     // so it can load resources like images during setup.
     let mut ui = Ui::new(&mut ctx)?;
+
+    for url in args.albums {
+        ui.to_scrape_tx.send(background::Request::Album { url })?;
+    }
+
+    for username in args.users {
+        ui.to_scrape_tx.send(background::Request::User { username })?;
+    }
+
+    if let [albums, users] = args.random[..] {
+        ui.loader.spawn_random(&mut ui.world, albums, users);
+    }
 
     // Run!
     ggez::event::run(&mut ctx, &mut event_loop, &mut ui)?;
@@ -67,13 +93,6 @@ impl Ui {
         let (to_scrape_tx, to_scrape_rx) = crossbeam::channel::unbounded();
 
         let _background = background::Thread::spawn(to_scrape_rx, scraped_tx)?;
-
-        to_scrape_tx.send(background::Request::Album { url: "https://yusuketsutsumi.bandcamp.com/album/a-grave-by-the-sea".into() })?;
-        to_scrape_tx.send(background::Request::Album { url: "https://yusuketsutsumi.bandcamp.com/album/artificial-naked-woman".into() })?;
-        to_scrape_tx.send(background::Request::Album { url: "https://yusuketsutsumi.bandcamp.com/album/suicide-beauty-girl".into() })?;
-        // to_scrape_tx.send(background::Request::Album { url: "https://birdeatsbaby.bandcamp.com/album/the-bullet-within".into() })?;
-        // to_scrape_tx.send(background::Request::User { username: "0-0-17".into() })?;
-        // loader.spawn_random(&mut world);
 
         Ui {
             world,

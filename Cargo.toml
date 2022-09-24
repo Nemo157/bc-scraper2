@@ -26,3 +26,4 @@ serde_json = { version = "1.0.85", default-features = false, features = ["std"] 
 tracing-tree = { version = "0.2.1", default-features = false }
 strum = { version = "0.24.1", default-features = false, features = ["derive"] }
 crossbeam = { version = "0.8.2", default-features = false, features = ["std"] }
+clap = { version = "=4.0.0-rc.1", default-features = false, features = ["derive", "color", "std", "help", "wrap_help"] }

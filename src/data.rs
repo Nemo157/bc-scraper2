@@ -66,11 +66,11 @@ impl Loader {
         }
     }
 
-    pub fn spawn_random(&mut self, world: &mut World) {
+    pub fn spawn_random(&mut self, world: &mut World, albums: u64, users: u64) {
         let mut rng = rand::thread_rng();
 
-        let mut albums = Vec::from_iter(rand::random::<[u64; 100]>());
-        let users = Vec::from_iter(rand::random::<[u64; 5]>());
+        let mut albums = Vec::from_iter((0..albums).map(|_| rand::random()));
+        let users = Vec::from_iter((0..users).map(|_| rand::random()));
 
         let mut linked_albums = Vec::new();
 
