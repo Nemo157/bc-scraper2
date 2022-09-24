@@ -228,6 +228,14 @@ pub fn mouse_motion(world: &mut World, ctx: &mut Context, pos: Position, delta: 
     }
 }
 
+pub fn resize(world: &mut World, ctx: &mut Context, width: f32, height: f32) {
+    let coords = ggez::graphics::screen_coordinates(ctx);
+    for (_, pos) in world.query_mut::<hecs::With<Camera, &mut Position>>() {
+        *pos += Distance::new((width - coords.w) / 2.0, (height - coords.h) / 2.0);
+    }
+    ggez::graphics::set_screen_coordinates(ctx, Rect::new(0.0, 0.0, width, height)).unwrap();
+}
+
 pub fn update(world: &mut World, ctx: &mut Context) {
     let mouse_pos = ggez::input::mouse::position(ctx);
     let mouse_pos = offset_to_camera(world, Position::from(mouse_pos));

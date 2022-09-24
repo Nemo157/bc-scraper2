@@ -1,5 +1,5 @@
 use eyre::Error;
-use ggez::{event::EventHandler, input::mouse::MouseButton, Context, ContextBuilder, GameResult};
+use ggez::{event::EventHandler, input::mouse::MouseButton, Context, ContextBuilder, GameResult, conf::WindowMode};
 use hecs::World;
 use std::time::{Duration, Instant};
 use tracing_subscriber::layer::SubscriberExt as _;
@@ -46,7 +46,12 @@ fn main() {
 
     // Make a Context and an EventLoop.
     let (mut ctx, mut event_loop) =
-        ContextBuilder::new("bc-scraper2", "mind your own bizness").build()?;
+        ContextBuilder::new("bc-scraper2", "mind your own bizness")
+        .window_mode(WindowMode {
+            resizable: true,
+            ..WindowMode::default()
+        })
+        .build()?;
 
     // Create an instance of your event handler.
     // Usually, you should provide it with the Context object
@@ -138,6 +143,10 @@ impl EventHandler for Ui {
             self.last_mouse_position,
             Velocity::new(x, y),
         );
+    }
+
+    fn resize_event(&mut self, ctx: &mut Context, width: f32, height: f32) {
+        ui::resize(&mut self.world, ctx, width, height);
     }
 
     fn update(&mut self, ctx: &mut Context) -> GameResult<()> {
