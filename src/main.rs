@@ -74,7 +74,7 @@ struct Ui {
     world: World,
     last_update: Instant,
     loader: data::Loader,
-    // Order matters, sender must be dropped before background thread
+    // Order matters, sender and receiver must be dropped before background thread to tell it to shutdown
     to_scrape_tx: Sender<background::Request>,
     scraped_rx: Receiver<background::Response>,
     _background: background::Thread,

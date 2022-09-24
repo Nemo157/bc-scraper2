@@ -1,5 +1,5 @@
 use url::Url;
-use eyre::Error;
+use eyre::{Error, Result};
 use std::collections::HashMap;
 use crate::data::{User, Album};
 
@@ -129,44 +129,44 @@ impl Scraper {
 
     #[fehler::throws]
     #[tracing::instrument(skip(self, on_album, on_fans), fields(%url))]
-    pub(crate) fn scrape_album(&self, url: &Url, on_album: impl FnOnce(Album), mut on_fans: impl FnMut(Vec<User>)) {
+    pub(crate) fn scrape_album(&self, url: &Url, on_album: impl FnOnce(Album) -> Result<()> , mut on_fans: impl FnMut(Vec<User>) -> Result<()>) {
         let page = self.scrape_album_page(url)?;
 
         let mut more_available = page.collectors.more_thumbs_available;
         on_album(Album {
             id: page.properties.item_id,
             url: url.to_string(),
-        });
+        })?;
 
         let mut token = page.collectors.thumbs.last().unwrap().token.clone();
-        on_fans(page.collectors.reviews.into_iter().map(|review| User { id: review.fan_id, url: format!("https://bandcamp.com/{}", review.username), }).collect());
-        on_fans(page.collectors.thumbs.into_iter().map(|thumb| User { id: thumb.fan_id, url: format!("https://bandcamp.com/{}", thumb.username), }).collect());
+        on_fans(page.collectors.reviews.into_iter().map(|review| User { id: review.fan_id, url: format!("https://bandcamp.com/{}", review.username), }).collect())?;
+        on_fans(page.collectors.thumbs.into_iter().map(|thumb| User { id: thumb.fan_id, url: format!("https://bandcamp.com/{}", thumb.username), }).collect())?;
 
         while more_available {
             let response = self.scrape_collectors_api(url, &page.properties, &token)?;
             token = response.results.last().unwrap().token.clone();
             more_available = response.more_available;
-            on_fans(response.results.into_iter().map(|thumb| User { id: thumb.fan_id, url: format!("https://bandcamp.com/{}", thumb.username), }).collect());
+            on_fans(response.results.into_iter().map(|thumb| User { id: thumb.fan_id, url: format!("https://bandcamp.com/{}", thumb.username), }).collect())?;
         }
     }
 
     #[fehler::throws]
     #[tracing::instrument(skip(self, on_fan, on_collection))]
-    pub(crate) fn scrape_fan(&self, url: &Url, on_fan: impl FnOnce(User), mut on_collection: impl FnMut(Vec<Album>)) {
+    pub(crate) fn scrape_fan(&self, url: &Url, on_fan: impl FnOnce(User) -> Result<()>, mut on_collection: impl FnMut(Vec<Album>) -> Result<()>) {
         let mut page = self.scrape_fan_page(&url)?;
 
-        on_fan(User { id: page.fan_data.fan_id, url: format!("https://bandcamp.com/{}", page.fan_data.username) });
+        on_fan(User { id: page.fan_data.fan_id, url: format!("https://bandcamp.com/{}", page.fan_data.username) })?;
 
         let items = Result::<Vec<_>, _>::from_iter(page.collection_data.sequence.into_iter().map(|s| page.item_cache.collection.remove(&s).ok_or_else(|| eyre::eyre!("cache missing collection item"))))?;
         let mut last_token = page.collection_data.last_token;
         let mut more_available = items.len() < page.collection_count;
-        on_collection(items.into_iter().map(|item| Album { id: item.item_id, url: item.item_url }).collect());
+        on_collection(items.into_iter().map(|item| Album { id: item.item_id, url: item.item_url }).collect())?;
 
         while more_available {
             let response = self.scrape_collections_api(page.fan_data.fan_id, &last_token)?;
             more_available = response.more_available;
             last_token = response.last_token;
-            on_collection(response.items.into_iter().map(|item| Album { id: item.item_id, url: item.item_url }).collect());
+            on_collection(response.items.into_iter().map(|item| Album { id: item.item_id, url: item.item_url }).collect())?;
         }
     }
 

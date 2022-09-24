@@ -1,4 +1,4 @@
-use crossbeam::channel::{Sender, Receiver};
+use crossbeam::channel::{Sender, Receiver, SendError};
 use eyre::Error;
 use url::Url;
 use std::cell::RefCell;
@@ -70,6 +70,10 @@ impl Background {
     fn run(&self) {
         for request in &self.to_scrape {
             if let Err(error) = self.handle_request(request) {
+                if error.is::<SendError<Response>>() {
+                    tracing::info!("background thread shutdown while still processing an item");
+                    return;
+                }
                 tracing::error!(?error, "failed handling scrape request");
             }
         }
@@ -82,19 +86,23 @@ impl Background {
             Request::User { url } => {
                 let user = RefCell::new(None);
                 self.scraper.scrape_fan(&Url::parse(&url)?, |fan| {
-                    self.scraped.send(Response::User(fan.clone())).unwrap();
+                    self.scraped.send(Response::User(fan.clone()))?;
                     user.replace(Some(fan));
+                    Ok(())
                 }, |collection| {
-                    self.scraped.send(Response::Collection(user.borrow().clone().unwrap(), collection)).unwrap();
+                    self.scraped.send(Response::Collection(user.borrow().clone().unwrap(), collection))?;   
+                    Ok(())
                 })?;
             }
             Request::Album { url } => {
                 let album = RefCell::new(None);
                 self.scraper.scrape_album(&Url::parse(&url)?, |new_album| {
-                    self.scraped.send(Response::Album(new_album.clone())).unwrap();
+                    self.scraped.send(Response::Album(new_album.clone()))?;
                     album.replace(Some(new_album));
+                    Ok(())
                 }, |fans| {
-                    self.scraped.send(Response::Fans(album.borrow().clone().unwrap(), fans)).unwrap();
+                    self.scraped.send(Response::Fans(album.borrow().clone().unwrap(), fans))?;
+                    Ok(())
                 })?;
             }
         }
