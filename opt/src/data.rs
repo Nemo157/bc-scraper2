@@ -5,7 +5,7 @@ use rand::{
 use rand_distr::Poisson;
 use std::{collections::{BTreeSet, BTreeMap}, time::Instant};
 
-use crate::phys::{Acceleration, Position, Velocity};
+use crate::phys::{Acceleration, Position, Velocity, Distance};
 
 #[derive(Debug)]
 pub enum Type {
@@ -95,6 +95,21 @@ impl EntityData {
             data: self,
         }
     }
+
+    fn at_random_location_near(self, position: Position) -> Entity {
+        let mut rng = rand::thread_rng();
+        let positions = Uniform::new(position - Distance::new(100.0, 100.0), position + Distance::new(100.0, 100.0));
+        let velocities = Uniform::new(Velocity::new(-10.0, -10.0), Velocity::new(10.0, 10.0));
+
+        Entity {
+            position: positions.sample(&mut rng),
+            velocity: velocities.sample(&mut rng),
+            acceleration: Acceleration::default(),
+            dragged: None,
+            is_under_mouse: false,
+            data: self,
+        }
+    }
 }
 
 impl Entities {
@@ -153,19 +168,33 @@ impl<'a> core::iter::IntoIterator for &'a Entities {
 
 impl Data {
     pub fn add_relationship(&mut self, album: &Album, user: &User) {
-        let &mut album = self.albums
-            .entry(album.id)
-            .or_insert_with(|| {
-                let entity = EntityData::Album(album.clone()).at_random_location();
-                self.entities.add(entity)
-            });
-
-        let &mut user = self.users
-            .entry(user.id)
-            .or_insert_with(|| {
-                let entity = EntityData::User(user.clone()).at_random_location();
-                self.entities.add(entity)
-            });
+        let (album, user) = if let Some(&album) = self.albums.get(&album.id) {
+            let &mut user = self.users
+                .entry(user.id)
+                .or_insert_with(|| {
+                    self.entities.add(EntityData::User(user.clone()).at_random_location_near(self.entities[album].position))
+                });
+            (album, user)
+        } else if let Some(&user) = self.users.get(&user.id) {
+            let &mut album = self.albums
+                .entry(album.id)
+                .or_insert_with(|| {
+                    self.entities.add(EntityData::Album(album.clone()).at_random_location_near(self.entities[user].position))
+                });
+            (album, user)
+        } else {
+            let &mut album = self.albums
+                .entry(album.id)
+                .or_insert_with(|| {
+                    self.entities.add(EntityData::Album(album.clone()).at_random_location())
+                });
+            let &mut user = self.users
+                .entry(user.id)
+                .or_insert_with(|| {
+                    self.entities.add(EntityData::User(user.clone()).at_random_location())
+                });
+            (album, user)
+        };
 
         self.relationships.insert(Relationship { album, user });
     }

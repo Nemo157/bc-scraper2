@@ -79,6 +79,14 @@ impl Add<&Distance> for &Position {
     }
 }
 
+impl Sub<Distance> for Position {
+    type Output = Position;
+
+    fn sub(self, rhs: Distance) -> Self::Output {
+        Position(self.0 - rhs.0)
+    }
+}
+
 impl AddAssign<Distance> for Position {
     fn add_assign(&mut self, rhs: Distance) {
         self.0 += rhs.0;
