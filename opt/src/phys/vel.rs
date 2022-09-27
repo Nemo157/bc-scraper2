@@ -94,6 +94,14 @@ impl Mul<Duration> for Velocity {
     }
 }
 
+impl Mul<f32> for Velocity {
+    type Output = Velocity;
+
+    fn mul(self, rhs: f32) -> Self::Output {
+        Velocity::from(self.0 * rhs)
+    }
+}
+
 impl Mul<&Duration> for Velocity {
     type Output = Distance;
 

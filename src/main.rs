@@ -1,6 +1,5 @@
 use eyre::Error;
 use ggez::{event::EventHandler, input::{mouse::MouseButton, keyboard::{KeyCode, KeyMods}}, Context, ContextBuilder, GameResult, GameError, conf::WindowMode};
-use hecs::World;
 use std::time::{Duration, Instant};
 use tracing_subscriber::layer::SubscriberExt as _;
 use tracing_subscriber::util::SubscriberInitExt as _;
@@ -9,7 +8,7 @@ use clap::Parser;
 
 use opt::{
     phys::{Distance, Position, Velocity},
-    data::{self, Album, User},
+    data::{Album, User, Data, EntityData},
     sim,
 };
 
@@ -71,7 +70,7 @@ fn main() {
     }
 
     if let [albums, users] = args.random[..] {
-        ui.loader.spawn_random(&mut ui.world, albums, users);
+        ui.data.spawn_random(albums, users);
     }
 
     // Run!
@@ -79,14 +78,13 @@ fn main() {
 }
 
 struct Ui {
-    world: World,
+    data: Data,
     last_update: Instant,
     last_mouse_position: Position,
     // target 5 seconds at 60 fps/20 tps
     fps: fps::Counter<300>,
     tps: fps::Counter<{5 * SIM_FREQ as usize}>,
     pause_sim: bool,
-    loader: data::Loader,
     // Order matters, sender and receiver must be dropped before background thread to tell it to shutdown
     to_scrape_tx: Sender<background::Request>,
     scraped_rx: Receiver<background::Response>,
@@ -96,11 +94,9 @@ struct Ui {
 impl Ui {
     #[fehler::throws]
     pub fn new(ctx: &mut Context) -> Ui {
-        let mut world = World::new();
+        let mut data = Data::default();
 
-        let loader = data::Loader::new();
-
-        ui::init(&mut world, ctx);
+        ui::init(&mut data, ctx);
 
         let (scraped_tx, scraped_rx) = crossbeam::channel::bounded(1);
         let (to_scrape_tx, to_scrape_rx) = crossbeam::channel::unbounded();
@@ -108,13 +104,12 @@ impl Ui {
         let _background = background::Thread::spawn(to_scrape_rx, scraped_tx)?;
 
         Ui {
-            world,
+            data,
             last_update: Instant::now(),
             fps: fps::Counter::default(),
             tps: fps::Counter::default(),
             last_mouse_position: Position::new(0.0, 0.0),
             pause_sim: false,
-            loader, 
             to_scrape_tx,
             scraped_rx,
             _background,
@@ -139,15 +134,18 @@ impl EventHandler for Ui {
     }
 
     fn mouse_button_down_event(&mut self, ctx: &mut Context, button: MouseButton, x: f32, y: f32) {
-        ui::mouse_down(&mut self.world, ctx, button, Position::new(x, y));
+        ui::mouse_down(&mut self.data, ctx, button, Position::new(x, y));
     }
 
     fn mouse_button_up_event(&mut self, ctx: &mut Context, button: MouseButton, x: f32, y: f32) {
-        if let Some(entity) = ui::mouse_up(&mut self.world, ctx, button, Position::new(x, y)) {
-            if let Ok(album) = self.world.query_one_mut::<&Album>(entity) {
-                self.to_scrape_tx.send(background::Request::Album { url: album.url.clone() }).unwrap();
-            } else if let Ok(user) = self.world.query_one_mut::<&User>(entity) {
-                self.to_scrape_tx.send(background::Request::User { url: user.url.clone() }).unwrap();
+        if let Some(entity) = ui::mouse_up(&mut self.data, ctx, button, Position::new(x, y)) {
+            match &entity.data {
+                EntityData::Album(Album { url, .. }) => {
+                    self.to_scrape_tx.send(background::Request::Album { url: url.clone() }).unwrap();
+                }
+                EntityData::User(User { url, .. }) => {
+                    self.to_scrape_tx.send(background::Request::User { url: url.clone() }).unwrap();
+                }
             }
         }
     }
@@ -155,7 +153,7 @@ impl EventHandler for Ui {
     fn mouse_motion_event(&mut self, ctx: &mut Context, x: f32, y: f32, dx: f32, dy: f32) {
         self.last_mouse_position = Position::new(x, y);
         ui::mouse_motion(
-            &mut self.world,
+            &mut self.data,
             ctx,
             self.last_mouse_position,
             Distance::new(dx, dy),
@@ -164,7 +162,7 @@ impl EventHandler for Ui {
 
     fn mouse_wheel_event(&mut self, ctx: &mut Context, x: f32, y: f32) {
         ui::mouse_wheel(
-            &mut self.world,
+            &mut self.data,
             ctx,
             self.last_mouse_position,
             Velocity::new(x, y),
@@ -172,26 +170,26 @@ impl EventHandler for Ui {
     }
 
     fn resize_event(&mut self, ctx: &mut Context, width: f32, height: f32) {
-        ui::resize(&mut self.world, ctx, width, height);
+        ui::resize(&mut self.data, ctx, width, height);
     }
 
     fn update(&mut self, ctx: &mut Context) -> GameResult<()> {
         while ggez::timer::check_update_time(ctx, SIM_FREQ as u32) {
-            ui::update(&mut self.world, ctx);
+            ui::update(&mut self.data, ctx);
             if !self.pause_sim {
-                sim::update(&mut self.world, SIM_TIME);
+                sim::update(&mut self.data, SIM_TIME);
                 self.tps.tick();
             }
             match self.scraped_rx.try_recv() {
                 Ok(response) => match response {
                     background::Response::Fans(album, users) => {
                         for user in users {
-                            self.loader.add_relationship(&mut self.world, &album, &user);
+                            self.data.add_relationship(&album, &user);
                         }
                     }
                     background::Response::Collection(user, albums) => {
                         for album in albums {
-                            self.loader.add_relationship(&mut self.world, &album, &user);
+                            self.data.add_relationship(&album, &user);
                         }
                     }
                     background::Response::Album(_) | background::Response::User(_) => {
@@ -212,7 +210,7 @@ impl EventHandler for Ui {
     #[fehler::throws(GameError)]
     fn draw(&mut self, ctx: &mut Context) {
         let delta = if self.pause_sim { Duration::default() } else { self.last_update.elapsed() };
-        ui::draw(&mut self.world, ctx, delta, self.tps.value(), self.fps.value());
+        ui::draw(&mut self.data, ctx, delta, self.tps.value(), self.fps.value());
         ggez::graphics::present(ctx)?;
         self.fps.tick();
     }

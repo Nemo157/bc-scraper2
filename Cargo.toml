@@ -15,7 +15,6 @@ opt-level = 2
 
 [dependencies]
 opt = { version = "0.0.0", path = "opt" }
-hecs = "0.5.2"
 ggez = "0.5.1"
 rand = { version = "0.8.5", features = ["min_const_gen"] }
 rand_distr = "0.4.3"

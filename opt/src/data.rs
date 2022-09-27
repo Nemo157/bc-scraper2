@@ -1,4 +1,3 @@
-use hecs::{Entity, World, EntityBuilder, DynamicBundle};
 use rand::{
     distributions::{Distribution, Uniform},
     seq::SliceRandom,
@@ -9,77 +8,173 @@ use std::{collections::{BTreeSet, BTreeMap}, time::Instant};
 use crate::phys::{Acceleration, Position, Velocity};
 
 #[derive(Debug)]
-pub struct Relationship {
-    pub from: Entity,
-    pub to: Entity,
+pub enum Type {
+    Album,
+    User,
+}
+
+#[derive(Copy, Clone, Debug, PartialOrd, Ord, PartialEq, Eq)]
+pub struct AlbumId(pub u64);
+
+#[derive(Copy, Clone, Debug, PartialOrd, Ord, PartialEq, Eq)]
+pub struct UserId(pub u64);
+
+#[derive(Copy, Clone, Debug, PartialOrd, Ord, PartialEq, Eq)]
+pub struct EntityId(u32);
+
+#[derive(Debug)]
+pub struct Drag {
+    pub start_position: Position,
+    pub start_time: Instant,
 }
 
 #[derive(Debug)]
-pub struct UnderMouse;
+pub struct Entity {
+    pub position: Position,
+    pub velocity: Velocity,
+    pub acceleration: Acceleration,
+    pub dragged: Option<Drag>,
+    pub is_under_mouse: bool,
+    pub data: EntityData,
+}
 
 #[derive(Debug)]
-pub struct Dragged(pub Position, pub Instant);
+pub enum EntityData {
+    Album(Album),
+    User(User),
+}
+
+#[derive(Default, Debug)]
+pub struct Camera {
+    pub position: Position,
+    pub zoom: f32,
+}
+
+#[derive(Debug, PartialOrd, Ord, PartialEq, Eq)]
+pub struct Relationship {
+    pub album: EntityId,
+    pub user: EntityId,
+}
+
+#[derive(Default, Debug)]
+pub struct Entities(Vec<Entity>);
+
+#[derive(Default, Debug)]
+pub struct Data {
+    pub entities: Entities,
+    pub relationships: BTreeSet<Relationship>,
+    pub camera: Camera,
+    pub albums: BTreeMap<AlbumId, EntityId>,
+    pub users: BTreeMap<UserId, EntityId>,
+}
 
 #[derive(Debug, Clone)]
 pub struct User {
-    pub id: u64,
+    pub id: UserId,
     pub url: String,
 }
 
 #[derive(Debug, Clone)]
 pub struct Album {
-    pub id: u64,
+    pub id: AlbumId,
     pub url: String,
 }
 
-#[derive(Debug)]
-pub struct Camera;
-
-#[derive(Debug)]
-pub struct Zoom(pub f32);
-
-trait WorldExt {
-    fn spawn_at_random_location(&mut self, components: impl DynamicBundle) -> Entity;
-}
-
-impl WorldExt for World {
-    fn spawn_at_random_location(&mut self, components: impl DynamicBundle) -> Entity {
+impl EntityData {
+    fn at_random_location(self) -> Entity {
         let mut rng = rand::thread_rng();
         let positions = Uniform::new(Position::new(200.0, 200.0), Position::new(400.0, 400.0));
         let velocities = Uniform::new(Velocity::new(-10.0, -10.0), Velocity::new(10.0, 10.0));
 
-        self.spawn(EntityBuilder::new().add_bundle(components).add_bundle((
-            positions.sample(&mut rng),
-            velocities.sample(&mut rng),
-            Acceleration::default(),
-        )).build())
-    }
-}
-
-pub struct Loader {
-    albums: BTreeMap<u64, Entity>,
-    users: BTreeMap<u64, Entity>,
-    relationships: BTreeSet<(u64, u64)>,
-}
-
-impl Loader {
-    pub fn new() -> Self {
-        Self { albums: BTreeMap::new(), users: BTreeMap::new(), relationships: BTreeSet::new() }
-    }
-
-    pub fn add_relationship(&mut self, world: &mut World, album: &Album, user: &User) {
-        if self.relationships.insert((user.id, album.id)) {
-            let &mut album = self.albums.entry(album.id).or_insert_with(|| world.spawn_at_random_location((album.clone(),)));
-            let &mut user = self.users.entry(user.id).or_insert_with(|| world.spawn_at_random_location((user.clone(),)));
-            world.spawn((Relationship { from: user, to: album },));
+        Entity {
+            position: positions.sample(&mut rng),
+            velocity: velocities.sample(&mut rng),
+            acceleration: Acceleration::default(),
+            dragged: None,
+            is_under_mouse: false,
+            data: self,
         }
     }
+}
 
-    pub fn spawn_random(&mut self, world: &mut World, albums: u64, users: u64) {
+impl Entities {
+    pub fn add(&mut self, entity: Entity) -> EntityId {
+        self.0.push(entity);
+        EntityId(self.len() - 1)
+    }
+
+    fn len(&self) -> u32 {
+        u32::try_from(self.0.len()).expect("too many entities")
+    }
+
+    pub fn ids(&self) -> impl Iterator<Item = EntityId> {
+        (0..self.len()).map(EntityId)
+    }
+
+    pub fn ids_after(&self, start: EntityId) -> impl Iterator<Item = EntityId> {
+        ((start.0 + 1)..self.len()).map(EntityId)
+    }
+
+    pub fn index_many_mut<const N: usize>(&mut self, indices: [EntityId; N]) -> [&mut Entity; N] {
+        let indices = indices.map(|id| usize::try_from(id.0).unwrap());
+        index_many::simple::index_many_mut(&mut self.0, indices)
+    }
+}
+
+impl core::ops::Index<EntityId> for Entities {
+    type Output = Entity;
+
+    fn index(&self, id: EntityId) -> &Self::Output {
+        &self.0[id.0 as usize]
+    }
+}
+
+impl core::ops::IndexMut<EntityId> for Entities {
+    fn index_mut(&mut self, id: EntityId) -> &mut Self::Output {
+        &mut self.0[id.0 as usize]
+    }
+}
+
+impl<'a> core::iter::IntoIterator for &'a mut Entities {
+    type Item = &'a mut Entity;
+    type IntoIter = core::slice::IterMut<'a, Entity>;
+    fn into_iter(self) -> Self::IntoIter {
+        (&mut self.0).into_iter()
+    }
+}
+
+impl<'a> core::iter::IntoIterator for &'a Entities {
+    type Item = &'a Entity;
+    type IntoIter = core::slice::Iter<'a, Entity>;
+    fn into_iter(self) -> Self::IntoIter {
+        (&self.0).into_iter()
+    }
+}
+
+impl Data {
+    pub fn add_relationship(&mut self, album: &Album, user: &User) {
+        let &mut album = self.albums
+            .entry(album.id)
+            .or_insert_with(|| {
+                let entity = EntityData::Album(album.clone()).at_random_location();
+                self.entities.add(entity)
+            });
+
+        let &mut user = self.users
+            .entry(user.id)
+            .or_insert_with(|| {
+                let entity = EntityData::User(user.clone()).at_random_location();
+                self.entities.add(entity)
+            });
+
+        self.relationships.insert(Relationship { album, user });
+    }
+
+    pub fn spawn_random(&mut self, albums: u64, users: u64) {
         let mut rng = rand::thread_rng();
 
-        let mut albums = Vec::from_iter((0..albums).map(|_| { let id = rand::random(); Album { id, url: format!("no://random/album/{id}") } }));
-        let users = Vec::from_iter((0..users).map(|_| { let id = rand::random(); User { id, url: format!("no://random/user/{id}") } }));
+        let mut albums = Vec::from_iter((0..albums).map(|_| { let id = rand::random(); Album { id: AlbumId(id), url: format!("no://random/album/{id}") } }));
+        let users = Vec::from_iter((0..users).map(|_| { let id = rand::random(); User { id: UserId(id), url: format!("no://random/user/{id}") } }));
 
         let mut linked_albums = Vec::new();
 
@@ -87,20 +182,20 @@ impl Loader {
             let count: u64 = Poisson::new(20.0).unwrap().sample(&mut rng) as u64;
             for album in albums.drain(..(count as usize).min(albums.len())) {
                 linked_albums.push(album.clone());
-                self.add_relationship(world, &album, user);
+                self.add_relationship(&album, user);
             }
         }
 
         for user in &users {
             let count: u64 = Poisson::new(3.0).unwrap().sample(&mut rng) as u64;
             for album in linked_albums.choose_multiple(&mut rng, count as usize) {
-                self.add_relationship(world, album, user);
+                self.add_relationship(album, user);
             }
         }
 
         for album in &albums {
             let user = users.choose(&mut rng).unwrap();
-            self.add_relationship(world, album, user);
+            self.add_relationship(album, user);
         }
     }
 }
