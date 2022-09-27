@@ -174,8 +174,8 @@ impl EventHandler for Ui {
     }
 
     fn update(&mut self, ctx: &mut Context) -> GameResult<()> {
-        while ggez::timer::check_update_time(ctx, SIM_FREQ as u32) {
-            ui::update(&mut self.data, ctx);
+        ui::update(&mut self.data, ctx);
+        if ggez::timer::check_update_time(ctx, SIM_FREQ as u32) {
             if !self.pause_sim {
                 sim::update(&mut self.data, SIM_TIME);
                 self.tps.tick();
