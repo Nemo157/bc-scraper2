@@ -2,7 +2,7 @@ use std::ops::{Add, AddAssign, Sub};
 
 use super::{Distance, Vec2};
 
-#[derive(Debug, Copy, Clone, Default)]
+#[derive(Debug, Copy, Clone, Default, PartialOrd, PartialEq, Eq)]
 pub struct Position(pub Vec2);
 
 impl Position {

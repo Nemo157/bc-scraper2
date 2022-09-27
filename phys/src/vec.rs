@@ -1,11 +1,26 @@
 use noisy_float::types::R32;
 use num_traits::Float;
 use std::ops::{Add, AddAssign, Div, DivAssign, Mul, MulAssign, Neg, Sub, SubAssign};
+use std::cmp::{PartialOrd, Ordering};
 
-#[derive(Debug, Copy, Clone, Default)]
+#[derive(Debug, Copy, Clone, Default, PartialEq, Eq)]
 pub struct Vec2 {
     pub x: R32,
     pub y: R32,
+}
+
+impl PartialOrd for Vec2 {
+    fn partial_cmp(&self, other: &Self) -> Option<Ordering> {
+        if self.x == other.x && self.y == other.y {
+            Some(Ordering::Equal)
+        } else if self.x < other.x && self.y < other.y {
+            Some(Ordering::Less)
+        } else if self.x > other.x && self.y > other.y {
+            Some(Ordering::Greater)
+        } else {
+            None
+        }
+    }
 }
 
 impl Vec2 {

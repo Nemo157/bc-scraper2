@@ -56,20 +56,25 @@ fn transform(world: &mut World, ctx: &mut Context) {
     }
 }
 
-fn draw_entities(world: &mut World, ctx: &mut Context, delta: Duration) {
+fn draw_entities(world: &mut World, ctx: &mut Context, delta: Duration, (tl, br): (Position, Position)) -> usize {
+    let mut count = 0;
     for (_, (mesh, pos, vel)) in world.query_mut::<(
         &Mesh,
         &Position,
         Option<hecs::Without<UnderMouse, &Velocity>>,
     )>() {
         let pos = vel.map(|vel| pos + *vel * delta).unwrap_or(*pos);
-        ggez::graphics::draw(ctx, mesh, DrawParam::from((pos,))).unwrap();
+        if pos > tl && pos < br {
+            ggez::graphics::draw(ctx, mesh, DrawParam::from((pos,))).unwrap();
+            count += 1;
+        }
     }
+    count
 }
 
-fn draw_relationships(world: &mut World, ctx: &mut Context, delta: Duration) {
+fn draw_relationships(world: &mut World, ctx: &mut Context, delta: Duration, (tl, br): (Position, Position)) -> usize {
     let mut mesh = MeshBuilder::new();
-    let mut has_any = false;
+    let mut count = 0;
     for (_, rel) in &mut world.query::<&Relationship>() {
         let (pos1, vel1, pos2, vel2) = (
             world.get::<Position>(rel.from).unwrap(),
@@ -80,40 +85,59 @@ fn draw_relationships(world: &mut World, ctx: &mut Context, delta: Duration) {
         let pos1 = vel1.map(|vel1| *pos1 + *vel1 * delta).unwrap_or(*pos1);
         let pos2 = vel2.map(|vel2| *pos2 + *vel2 * delta).unwrap_or(*pos2);
         let dist = pos1 - pos2;
-        if dist.chebyshev().abs() > 1.0 {
+        if dist.chebyshev().abs() > 1.0 && ((pos1 > tl && pos1 < br) || (pos2 > tl && pos2 < br)) {
             mesh.line(
                 &[pos1, pos2],
                 0.5,
                 LIGHT_RED,
             )
             .unwrap();
-            has_any = true;
+            count += 1;
         }
     }
-    if has_any {
+    if count > 0 {
         let mesh = mesh.build(ctx).unwrap();
         ggez::graphics::draw(ctx, &mesh, DrawParam::default()).unwrap();
     }
+    count
 }
 
-fn draw_status_bar(world: &mut World, ctx: &mut Context) {
+fn draw_status_bar(world: &mut World, ctx: &mut Context, tps: f64, fps: f64, nodes: usize, lines: usize) {
+    let albums = world.query_mut::<hecs::With<Album, ()>>().into_iter().len();
+    let users = world.query_mut::<hecs::With<User, ()>>().into_iter().len();
+    let links = world.query_mut::<hecs::With<Relationship, ()>>().into_iter().len();
+
+    let mut text = Text::new(format!(indoc::indoc!("
+        tps: {:.2}
+        fps: {:.2}
+        albums, users, links: {} {} {}
+        drawn: {}/{} {}/{}
+    "), tps, fps, albums, users, links, nodes, (albums + users), lines, links));
+
     for (_, album) in world.query_mut::<hecs::With<UnderMouse, &Album>>() {
-        ggez::graphics::draw(ctx, Text::new("album: ").add(album.url.as_str()), DrawParam::from(([0.0, 0.0], BLACK))).unwrap();
+        let url = &album.url;
+        text.add(format!("\nalbum: {url}"));
     }
+
     for (_, user) in world.query_mut::<hecs::With<UnderMouse, &User>>() {
-        ggez::graphics::draw(ctx, Text::new("user: ").add(user.url.as_str()), DrawParam::from(([0.0, 0.0], BLACK))).unwrap();
+        let url = &user.url;
+        text.add(format!("\nuser: {url}"));
     }
+
+    ggez::graphics::draw(ctx, &text, DrawParam::from(([0.0, 0.0], BLACK))).unwrap();
 }
 
-pub fn draw(world: &mut World, ctx: &mut Context, delta: Duration) {
+pub fn draw(world: &mut World, ctx: &mut Context, delta: Duration, tps: f64, fps: f64) {
     ggez::graphics::clear(ctx, WHITE);
     ensure_meshes(world, ctx);
+    transform(world, ctx);
+    let coords = ggez::graphics::screen_coordinates(ctx);
+    let (tl, br) = (offset_to_camera(world, Position::new(coords.x, coords.y)), offset_to_camera(world, Position::new(coords.x + coords.w, coords.y + coords.h)));
+    let nodes = draw_entities(world, ctx, delta, (tl, br));
+    let lines = draw_relationships(world, ctx, delta, (tl, br));
     ggez::graphics::origin(ctx);
     ggez::graphics::apply_transformations(ctx).unwrap();
-    draw_status_bar(world, ctx);
-    transform(world, ctx);
-    draw_entities(world, ctx, delta);
-    draw_relationships(world, ctx, delta);
+    draw_status_bar(world, ctx, tps, fps, nodes, lines);
 }
 
 fn update_drag(world: &mut World, mouse_pos: Position, delta: Distance) {

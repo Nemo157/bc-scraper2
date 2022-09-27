@@ -45,3 +45,4 @@ clap = { version = "=4.0.0-rc.1", default-features = false, features = ["derive"
 phys = { version = "0.0.0", path = "phys" }
 sim = { version = "0.0.0", path = "sim" }
 data = { version = "0.0.0", path = "data" }
+indoc = { version = "1.0.7", default-features = false }

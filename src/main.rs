@@ -1,5 +1,5 @@
 use eyre::Error;
-use ggez::{event::EventHandler, input::{mouse::MouseButton, keyboard::{KeyCode, KeyMods}}, Context, ContextBuilder, GameResult, conf::WindowMode};
+use ggez::{event::EventHandler, input::{mouse::MouseButton, keyboard::{KeyCode, KeyMods}}, Context, ContextBuilder, GameResult, GameError, conf::WindowMode};
 use hecs::World;
 use std::time::{Duration, Instant};
 use tracing_subscriber::layer::SubscriberExt as _;
@@ -12,6 +12,7 @@ use data::{Album, User};
 
 mod ui;
 mod background;
+mod fps;
 
 
 const SIM_FREQ: u64 = 20;
@@ -78,6 +79,9 @@ struct Ui {
     world: World,
     last_update: Instant,
     last_mouse_position: Position,
+    // target 5 seconds at 60 fps/20 tps
+    fps: fps::Counter<300>,
+    tps: fps::Counter<{5 * SIM_FREQ as usize}>,
     pause_sim: bool,
     loader: data::Loader,
     // Order matters, sender and receiver must be dropped before background thread to tell it to shutdown
@@ -103,6 +107,8 @@ impl Ui {
         Ui {
             world,
             last_update: Instant::now(),
+            fps: fps::Counter::default(),
+            tps: fps::Counter::default(),
             last_mouse_position: Position::new(0.0, 0.0),
             pause_sim: false,
             loader, 
@@ -171,6 +177,7 @@ impl EventHandler for Ui {
             ui::update(&mut self.world, ctx);
             if !self.pause_sim {
                 sim::update(&mut self.world, SIM_TIME);
+                self.tps.tick();
             }
             match self.scraped_rx.try_recv() {
                 Ok(response) => match response {
@@ -199,9 +206,11 @@ impl EventHandler for Ui {
         Ok(())
     }
 
-    fn draw(&mut self, ctx: &mut Context) -> GameResult<()> {
+    #[fehler::throws(GameError)]
+    fn draw(&mut self, ctx: &mut Context) {
         let delta = if self.pause_sim { Duration::default() } else { self.last_update.elapsed() };
-        ui::draw(&mut self.world, ctx, delta);
-        ggez::graphics::present(ctx)
+        ui::draw(&mut self.world, ctx, delta, self.tps.value(), self.fps.value());
+        ggez::graphics::present(ctx)?;
+        self.fps.tick();
     }
 }
