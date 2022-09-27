@@ -7,8 +7,11 @@ use tracing_subscriber::util::SubscriberInitExt as _;
 use crossbeam::channel::{Sender, Receiver, TryRecvError};
 use clap::Parser;
 
-use phys::{Distance, Position, Velocity};
-use data::{Album, User};
+use opt::{
+    phys::{Distance, Position, Velocity},
+    data::{self, Album, User},
+    sim,
+};
 
 mod ui;
 mod background;

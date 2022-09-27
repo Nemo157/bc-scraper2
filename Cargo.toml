@@ -10,16 +10,11 @@ publish = false
 opt-level = 2
 debug = false
 
-[profile.dev.package.phys]
-opt-level = 2
-
-[profile.dev.package.sim]
-opt-level = 2
-
-[profile.dev.package.data]
+[profile.dev.package.opt]
 opt-level = 2
 
 [dependencies]
+opt = { version = "0.0.0", path = "opt" }
 hecs = "0.5.2"
 ggez = "0.5.1"
 rand = { version = "0.8.5", features = ["min_const_gen"] }
@@ -41,10 +36,6 @@ tracing-tree = { version = "0.2.1", default-features = false }
 strum = { version = "0.24.1", default-features = false, features = ["derive"] }
 crossbeam = { version = "0.8.2", default-features = false, features = ["std"] }
 clap = { version = "=4.0.0-rc.1", default-features = false, features = ["derive", "color", "std", "help", "wrap_help"] }
-
-phys = { version = "0.0.0", path = "phys" }
-sim = { version = "0.0.0", path = "sim" }
-data = { version = "0.0.0", path = "data" }
 indoc = { version = "1.0.7", default-features = false }
 dark-light = { version = "0.2.3", default-features = false }
 once_cell = { version = "1.15.0", default-features = false, features = ["std"] }

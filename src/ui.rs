@@ -6,8 +6,10 @@ use ggez::{
 use hecs::{World, Entity};
 use std::time::{Duration, Instant};
 
-use phys::{Distance, Position, Velocity, Float};
-use data::{Album, Camera, Dragged, Relationship, UnderMouse, User, Zoom};
+use opt::{
+    phys::{Distance, Position, Velocity, Float},
+    data::{Album, Camera, Dragged, Relationship, UnderMouse, User, Zoom},
+};
 
 const LIGHT_RED: Color = Color::new(1.0, 0.0, 0.0, 0.2);
 const MODE: once_cell::sync::Lazy::<dark_light::Mode> = once_cell::sync::Lazy::new(|| dark_light::detect());

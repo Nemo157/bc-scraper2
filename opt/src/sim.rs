@@ -1,8 +1,10 @@
 use hecs::World;
 use rayon::iter::{IntoParallelIterator, ParallelIterator};
 use std::time::Duration;
-use phys::{Acceleration, Position, Velocity};
-use data::{Relationship, UnderMouse};
+use crate::{
+    phys::{Acceleration, Position, Velocity},
+    data::{Relationship, UnderMouse},
+};
 
 fn update_pos(world: &mut World, delta: Duration) {
     for (_, (mut pos, vel)) in
