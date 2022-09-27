@@ -1,3 +1,4 @@
+use rayon::iter::{IntoParallelIterator, ParallelIterator};
 use std::time::Duration;
 use crate::{
     phys::{Acceleration, Velocity},
@@ -11,13 +12,13 @@ fn update_position(data: &mut Data, delta: Duration) {
 }
 
 fn update_velocity(data: &mut Data, delta: Duration) {
-    for entity in &mut data.entities {
+    (&mut data.entities).into_par_iter().for_each(|entity| {
         if entity.is_under_mouse {
             entity.velocity = Velocity::default();
         } else {
             entity.velocity = (entity.velocity * 0.7 + entity.acceleration * delta).clamp(1000.0);
         }
-    }
+    });
 }
 
 fn repel(data: &mut Data) {
@@ -44,9 +45,9 @@ fn attract(data: &mut Data) {
 }
 
 fn update_acc(data: &mut Data) {
-    for entity in &mut data.entities {
+    (&mut data.entities).into_par_iter().for_each(|entity| {
         entity.acceleration = Acceleration::default();
-    }
+    });
     repel(data);
     attract(data);
 }

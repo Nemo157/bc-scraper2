@@ -158,6 +158,14 @@ impl<'a> core::iter::IntoIterator for &'a mut Entities {
     }
 }
 
+impl<'a> rayon::iter::IntoParallelIterator for &'a mut Entities {
+    type Item = &'a mut Entity;
+    type Iter = rayon::slice::IterMut<'a, Entity>;
+    fn into_par_iter(self) -> Self::Iter {
+        (&mut self.0).into_par_iter()
+    }
+}
+
 impl<'a> core::iter::IntoIterator for &'a Entities {
     type Item = &'a Entity;
     type IntoIter = core::slice::Iter<'a, Entity>;
