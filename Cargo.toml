@@ -46,3 +46,5 @@ phys = { version = "0.0.0", path = "phys" }
 sim = { version = "0.0.0", path = "sim" }
 data = { version = "0.0.0", path = "data" }
 indoc = { version = "1.0.7", default-features = false }
+dark-light = { version = "0.2.3", default-features = false }
+once_cell = { version = "1.15.0", default-features = false, features = ["std"] }

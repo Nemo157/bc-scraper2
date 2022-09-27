@@ -10,6 +10,7 @@ use phys::{Distance, Position, Velocity, Float};
 use data::{Album, Camera, Dragged, Relationship, UnderMouse, User, Zoom};
 
 const LIGHT_RED: Color = Color::new(1.0, 0.0, 0.0, 0.2);
+const MODE: once_cell::sync::Lazy::<dark_light::Mode> = once_cell::sync::Lazy::new(|| dark_light::detect());
 
 fn ensure_meshes(world: &mut World, ctx: &mut Context) {
     let to_add_users = world
@@ -32,7 +33,7 @@ fn ensure_meshes(world: &mut World, ctx: &mut Context) {
                     ctx,
                     DrawMode::fill(),
                     Rect::new(-5.0, -5.0, 10.0, 10.0),
-                    BLACK,
+                    match *MODE { dark_light::Mode::Light => BLACK, dark_light::Mode::Dark => WHITE },
                 )
                 .unwrap(),
             )
@@ -43,7 +44,15 @@ fn ensure_meshes(world: &mut World, ctx: &mut Context) {
         world
             .insert_one(
                 entity,
-                Mesh::new_circle(ctx, DrawMode::fill(), [0.0, 0.0], 5.0, 0.1, BLACK).unwrap(),
+                Mesh::new_circle(
+                    ctx,
+                    DrawMode::fill(),
+                    [0.0, 0.0],
+                    5.0,
+                    0.1,
+                    match *MODE { dark_light::Mode::Light => BLACK, dark_light::Mode::Dark => WHITE },
+                )
+                .unwrap(),
             )
             .unwrap();
     }
@@ -124,11 +133,25 @@ fn draw_status_bar(world: &mut World, ctx: &mut Context, tps: f64, fps: f64, nod
         text.add(format!("\nuser: {url}"));
     }
 
-    ggez::graphics::draw(ctx, &text, DrawParam::from(([0.0, 0.0], BLACK))).unwrap();
+    ggez::graphics::draw(
+        ctx,
+        &text,
+        DrawParam::from((
+            [0.0, 0.0],
+            match *MODE {
+                dark_light::Mode::Light => BLACK,
+                dark_light::Mode::Dark => WHITE
+            }
+        )),
+    ).unwrap();
 }
 
 pub fn draw(world: &mut World, ctx: &mut Context, delta: Duration, tps: f64, fps: f64) {
-    ggez::graphics::clear(ctx, WHITE);
+    ggez::graphics::clear(ctx,
+            match *MODE {
+                dark_light::Mode::Light => WHITE,
+                dark_light::Mode::Dark => BLACK,
+            });
     ensure_meshes(world, ctx);
     transform(world, ctx);
     let coords = ggez::graphics::screen_coordinates(ctx);
