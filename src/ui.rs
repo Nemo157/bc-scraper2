@@ -156,8 +156,8 @@ pub fn draw(world: &mut World, ctx: &mut Context, delta: Duration, tps: f64, fps
     transform(world, ctx);
     let coords = ggez::graphics::screen_coordinates(ctx);
     let (tl, br) = (offset_to_camera(world, Position::new(coords.x, coords.y)), offset_to_camera(world, Position::new(coords.x + coords.w, coords.y + coords.h)));
-    let nodes = draw_entities(world, ctx, delta, (tl, br));
     let lines = draw_relationships(world, ctx, delta, (tl, br));
+    let nodes = draw_entities(world, ctx, delta, (tl, br));
     ggez::graphics::origin(ctx);
     ggez::graphics::apply_transformations(ctx).unwrap();
     draw_status_bar(world, ctx, tps, fps, nodes, lines);
