@@ -122,9 +122,10 @@ impl Entities {
 
     pub fn combinations(&mut self, f: impl Fn(&mut Entity, &mut Entity)) {
         for i in 0..self.0.len() {
-            for j in (i + 1)..self.0.len() {
-                let [entity1, entity2] = index_many::simple::index_many_mut(&mut self.0, [i, j]);
-                f(entity1, entity2);
+            if let ([.., entity1], right) = self.0.split_at_mut(i + 1) {
+                for entity2 in right {
+                    f(entity1, entity2);
+                }
             }
         }
     }
