@@ -86,24 +86,24 @@ impl Background {
             Request::User { url } => {
                 let user = RefCell::new(None);
                 self.scraper.scrape_fan(&Url::parse(&url)?, |fan| {
-                    self.scraped.send(Response::User(fan.clone()))?;
                     user.replace(Some(fan));
                     Ok(())
                 }, |collection| {
                     self.scraped.send(Response::Collection(user.borrow().clone().unwrap(), collection))?;   
                     Ok(())
                 })?;
+                self.scraped.send(Response::User(user.replace(None).take().unwrap()))?;
             }
             Request::Album { url } => {
                 let album = RefCell::new(None);
                 self.scraper.scrape_album(&Url::parse(&url)?, |new_album| {
-                    self.scraped.send(Response::Album(new_album.clone()))?;
                     album.replace(Some(new_album));
                     Ok(())
                 }, |fans| {
                     self.scraped.send(Response::Fans(album.borrow().clone().unwrap(), fans))?;
                     Ok(())
                 })?;
+                self.scraped.send(Response::Album(album.replace(None).take().unwrap()))?;
             }
         }
     }

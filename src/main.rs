@@ -93,7 +93,7 @@ struct App {
 
 impl App {
     #[fehler::throws]
-    pub fn new(_ctx: &mut Context) -> Self {
+    pub fn new(ctx: &mut Context) -> Self {
         let (scraped_tx, scraped_rx) = crossbeam::channel::bounded(1);
         let (to_scrape_tx, to_scrape_rx) = crossbeam::channel::unbounded();
 
@@ -101,7 +101,7 @@ impl App {
 
         Self {
             data: Data::default(),
-            ui: Ui::new(),
+            ui: Ui::new(ctx),
             last_update: Instant::now(),
             tps: fps::Counter::new(20.0),
             fps: fps::Counter::new(60.0),
@@ -193,8 +193,15 @@ impl EventHandler for App {
                             self.data.add_relationship(&album, &user);
                         }
                     }
-                    background::Response::Album(_) | background::Response::User(_) => {
-                        // do nothing for now
+                    background::Response::Album(Album { id, .. }) => {
+                        if let Some(&id) = self.data.albums.get(&id) {
+                            self.data.entities[id].is_scraped = true;
+                        }
+                    }
+                    background::Response::User(User { id, .. }) => {
+                        if let Some(&id) = self.data.users.get(&id) {
+                            self.data.entities[id].is_scraped = true;
+                        }
                     }
                 }
                 Err(TryRecvError::Empty) => {}

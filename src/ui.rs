@@ -3,7 +3,8 @@ use ggez::{
     input::mouse::MouseButton,
     Context,
 };
-use std::time::{Duration, Instant};
+use std::{time::{Duration, Instant}, collections::BTreeMap};
+use itertools::Itertools;
 
 use opt::{
     phys::{Distance, Position, Velocity, Float},
@@ -11,42 +12,6 @@ use opt::{
 };
 
 const LIGHT_RED: Color = Color::new(1.0, 0.0, 0.0, 0.2);
-static MODE: once_cell::sync::Lazy::<dark_light::Mode> = once_cell::sync::Lazy::new(dark_light::detect);
-
-fn user_mesh(ctx: &mut Context) -> &'static Mesh {
-    static MESH: once_cell::sync::OnceCell::<Mesh> = once_cell::sync::OnceCell::new();
-    MESH.get_or_init(|| {
-        Mesh::new_rectangle(
-            ctx,
-            DrawMode::fill(),
-            Rect::new(-5.0, -5.0, 10.0, 10.0),
-            match *MODE { dark_light::Mode::Light => BLACK, dark_light::Mode::Dark => WHITE },
-        )
-        .unwrap()
-    })
-}
-
-fn album_mesh(ctx: &mut Context) -> &'static Mesh {
-    static MESH: once_cell::sync::OnceCell::<Mesh> = once_cell::sync::OnceCell::new();
-    MESH.get_or_init(|| {
-        Mesh::new_circle(
-            ctx,
-            DrawMode::fill(),
-            [0.0, 0.0],
-            5.0,
-            0.1,
-            match *MODE { dark_light::Mode::Light => BLACK, dark_light::Mode::Dark => WHITE },
-        )
-        .unwrap()
-    })
-}
-
-fn entity_mesh(ctx: &mut Context, entity: &Entity) -> &'static Mesh {
-    match entity.data {
-        EntityData::Album(_) => album_mesh(ctx),
-        EntityData::User(_) => user_mesh(ctx),
-    }
-}
 
 #[derive(Debug)]
 struct Camera {
@@ -54,15 +19,60 @@ struct Camera {
     zoom: f32,
 }
 
+#[derive(Debug, Ord, PartialOrd, Eq, PartialEq, Clone, Copy)]
+enum EntityTag {
+    Album,
+    User
+}
+
+#[derive(Debug, Ord, PartialOrd, Eq, PartialEq, Clone, Copy)]
+struct MeshKey {
+    tag: EntityTag,
+    is_scraped: bool,
+    is_under_mouse: bool,
+}
+
 #[derive(Debug)]
 pub struct Ui {
     camera: Camera,
     pub enable_lines: bool,
     pub enable_nodes: bool,
+    meshes: BTreeMap<MeshKey, Mesh>,
+    foreground: Color,
+    background: Color,
 }
 
 impl Ui {
-    pub fn new() -> Self {
+    pub fn new(ctx: &mut Context) -> Self {
+        let mode = dark_light::detect();
+        let (fg, bg) = match mode { dark_light::Mode::Light => (BLACK, WHITE), dark_light::Mode::Dark => (WHITE, BLACK) };
+
+        let highlight = Color::new(0.2, 1.0, 0.2, 1.0);
+        let scraped = Color::new(0.2, 0.2, 1.0, 1.0);
+        let both = Color::new(0.2, 1.0, 1.0, 1.0);
+
+        let meshes = BTreeMap::from_iter(
+            [
+                (
+                    EntityTag::User,
+                    (|ctx, color| Mesh::new_rectangle(ctx, DrawMode::fill(), Rect::new(-5.0, -5.0, 10.0, 10.0), color).unwrap()) as fn(&mut Context, Color) -> Mesh,
+                ),
+                (
+                    EntityTag::Album,
+                    |ctx, color| Mesh::new_circle(ctx, DrawMode::fill(), [0.0, 0.0], 5.0, 0.1, color).unwrap(),
+                ),
+            ]
+                .into_iter()
+                .cartesian_product([
+                    (false, false, fg),
+                    (false, true, highlight),
+                    (true, false, scraped),
+                    (true, true, both),
+                ])
+                .map(|((tag, make), (is_scraped, is_under_mouse, color))| {
+                    (MeshKey { tag, is_scraped, is_under_mouse }, make(ctx, color))
+                }));
+
         Self { 
             camera: Camera {
                 position: Position::new(0.0, 0.0),
@@ -70,7 +80,18 @@ impl Ui {
             },
             enable_lines: true,
             enable_nodes: true,
+            meshes,
+            foreground: fg,
+            background: bg,
         }
+    }
+
+    fn mesh_for(&self, entity: &Entity) -> &Mesh {
+        let tag = match entity.data {
+            EntityData::Album(_) => EntityTag::Album,
+            EntityData::User(_) => EntityTag::User,
+        };
+        &self.meshes[&MeshKey { tag, is_scraped: entity.is_scraped, is_under_mouse: entity.is_under_mouse }]
     }
 
     fn draw_entities(&self, data: &Data, ctx: &mut Context, delta: Duration, (tl, br): (Position, Position)) -> usize {
@@ -78,8 +99,7 @@ impl Ui {
         for entity in &data.entities {
             let pos = entity.position + entity.velocity * delta;
             if pos > tl && pos < br {
-                let mesh = entity_mesh(ctx, entity);
-                ggez::graphics::draw(ctx, mesh, DrawParam::from((pos,))).unwrap();
+                ggez::graphics::draw(ctx, self.mesh_for(entity), DrawParam::from((pos,))).unwrap();
                 count += 1;
             }
         }
@@ -139,16 +159,13 @@ impl Ui {
             &text,
             DrawParam::from((
                 [0.0, 0.0],
-                match *MODE {
-                    dark_light::Mode::Light => BLACK,
-                    dark_light::Mode::Dark => WHITE
-                }
+                self.foreground,
             )),
         ).unwrap();
     }
 
     pub fn draw(&mut self, data: &Data, ctx: &mut Context, delta: Duration, tps: f64, sim_duration: Duration, fps: f64, frame_duration: Duration) {
-        ggez::graphics::clear(ctx, match *MODE { dark_light::Mode::Light => WHITE, dark_light::Mode::Dark => BLACK });
+        ggez::graphics::clear(ctx, self.background);
         ggez::graphics::set_transform(ctx, DrawParam::new().dest(self.camera.position).scale([self.camera.zoom, self.camera.zoom]).to_matrix());
         ggez::graphics::apply_transformations(ctx).unwrap();
         let coords = ggez::graphics::screen_coordinates(ctx);

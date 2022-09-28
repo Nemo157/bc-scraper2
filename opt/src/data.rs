@@ -35,6 +35,7 @@ pub struct Entity {
     pub acceleration: Acceleration,
     pub dragged: Option<Drag>,
     pub is_under_mouse: bool,
+    pub is_scraped: bool,
     pub data: EntityData,
 }
 
@@ -85,6 +86,7 @@ impl EntityData {
             acceleration: Acceleration::default(),
             dragged: None,
             is_under_mouse: false,
+            is_scraped: false,
             data: self,
         }
     }
@@ -100,6 +102,7 @@ impl EntityData {
             acceleration: Acceleration::default(),
             dragged: None,
             is_under_mouse: false,
+            is_scraped: false,
             data: self,
         }
     }
