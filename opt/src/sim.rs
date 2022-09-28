@@ -34,11 +34,11 @@ fn repel(data: &mut Data) {
 
 fn attract(data: &mut Data) {
     for rel in &data.relationships {
-        let [entity1, entity2] = data.entities.index_many_mut({ let mut indexes = [rel.album, rel.user]; indexes.sort(); indexes });
+        let (album, user) = data.entities.index_pair(rel.album, rel.user);
         // TODO: Unit for attraction
-        let attraction = Acceleration::from((entity2.position - entity1.position).0 * 2.0);
-        entity1.acceleration += attraction;
-        entity2.acceleration += -attraction;
+        let attraction = Acceleration::from((user.position - album.position).0 * 2.0);
+        album.acceleration += attraction;
+        user.acceleration += -attraction;
     }
 }
 

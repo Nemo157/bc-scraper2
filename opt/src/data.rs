@@ -115,9 +115,15 @@ impl Entities {
         u32::try_from(self.0.len()).expect("too many entities")
     }
 
-    pub fn index_many_mut<const N: usize>(&mut self, indices: [EntityId; N]) -> [&mut Entity; N] {
-        let indices = indices.map(|id| usize::try_from(id.0).unwrap());
-        index_many::simple::index_many_mut(&mut self.0, indices)
+    pub fn index_pair(&mut self, i: EntityId, j: EntityId) -> (&mut Entity, &mut Entity) {
+        let (i, j) = (i.0 as usize, j.0 as usize);
+        if i < j {
+            let (left, right) = self.0.split_at_mut(i + 1);
+            (&mut left[i], &mut right[j - i - 1])
+        } else {
+            let (left, right) = self.0.split_at_mut(j + 1);
+            (&mut right[i - j - 1], &mut left[j])
+        }
     }
 
     pub fn combinations(&mut self, f: impl Fn(&mut Entity, &mut Entity)) {
