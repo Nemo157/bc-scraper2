@@ -86,7 +86,7 @@ impl Ui {
         count
     }
 
-    fn draw_relationships(&self, data: &Data, ctx: &mut Context, delta: Duration, (tl, br): (Position, Position)) -> usize {
+    fn draw_relationships(&self, data: &Data, ctx: &mut Context, delta: Duration) -> usize {
         let mut mesh = MeshBuilder::new();
         let mut count = 0;
         for rel in &data.relationships {
@@ -95,7 +95,7 @@ impl Ui {
             let pos1 = entity1.position + entity1.velocity * delta;
             let pos2 = entity2.position + entity2.velocity * delta;
             let dist = pos1 - pos2;
-            if dist.chebyshev().abs() > 1.0 && ((pos1 > tl && pos1 < br) || (pos2 > tl && pos2 < br)) {
+            if dist.chebyshev().abs() > 1.0 {
                 mesh.line(&[pos1, pos2], 0.5, LIGHT_RED).unwrap();
                 count += 1;
             }
@@ -107,7 +107,7 @@ impl Ui {
         count
     }
 
-    fn draw_status_bar(&self, data: &Data, ctx: &mut Context, tps: f64, sim_duration: Duration, fps: f64, frame_duration: Duration, nodes: usize, lines: usize) {
+    fn draw_status_bar(&self, data: &Data, ctx: &mut Context, tps: f64, sim_duration: Duration, fps: f64, frame_duration: Duration, nodes: usize, _lines: usize) {
         let albums = data.albums.len();
         let users = data.users.len();
         let links = data.relationships.len();
@@ -115,9 +115,11 @@ impl Ui {
         let mut text = Text::new(format!(indoc::indoc!("
             tps: {:.2} ({:.2?})
             fps: {:.2} ({:.2?})
-            albums, users, links: {} {} {}
-            drawn: {}/{} {}/{}
-        "), tps, sim_duration, fps, frame_duration, albums, users, links, nodes, (albums + users), lines, links));
+            albums: {}
+            users: {}
+            links: {}
+            drawn: {}/{}
+        "), tps, sim_duration, fps, frame_duration, albums, users, links, nodes, (albums + users)));
 
         for entity in &data.entities {
             if entity.is_under_mouse {
@@ -151,7 +153,7 @@ impl Ui {
         ggez::graphics::apply_transformations(ctx).unwrap();
         let coords = ggez::graphics::screen_coordinates(ctx);
         let (tl, br) = (self.offset_to_camera(Position::new(coords.x, coords.y)), self.offset_to_camera(Position::new(coords.x + coords.w, coords.y + coords.h)));
-        let lines = self.enable_lines.then(|| self.draw_relationships(data, ctx, delta, (tl, br))).unwrap_or_default();
+        let lines = self.enable_lines.then(|| self.draw_relationships(data, ctx, delta)).unwrap_or_default();
         let nodes = self.enable_nodes.then(|| self.draw_entities(data, ctx, delta, (tl, br))).unwrap_or_default();
         ggez::graphics::origin(ctx);
         ggez::graphics::apply_transformations(ctx).unwrap();
