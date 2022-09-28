@@ -22,16 +22,14 @@ fn update_velocity(data: &mut Data, delta: Duration) {
 }
 
 fn repel(data: &mut Data) {
-    for id1 in data.entities.ids() {
-        for id2 in data.entities.ids_after(id1) {
-            let [entity1, entity2] = data.entities.index_many_mut([id1, id2]);
+    data.entities
+        .combinations(|entity1, entity2| {
             let distance = entity1.position - entity2.position;
             let dsq = distance.euclid_squared().raw().max(0.001);
             let acceleration = Acceleration::from(distance.0 * 1000.0) / dsq;
             entity1.acceleration += acceleration;
             entity2.acceleration += -acceleration;
-        }
-    }
+        });
 }
 
 fn attract(data: &mut Data) {

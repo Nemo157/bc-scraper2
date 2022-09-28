@@ -115,17 +115,18 @@ impl Entities {
         u32::try_from(self.0.len()).expect("too many entities")
     }
 
-    pub fn ids(&self) -> impl Iterator<Item = EntityId> {
-        (0..self.len()).map(EntityId)
-    }
-
-    pub fn ids_after(&self, start: EntityId) -> impl Iterator<Item = EntityId> {
-        ((start.0 + 1)..self.len()).map(EntityId)
-    }
-
     pub fn index_many_mut<const N: usize>(&mut self, indices: [EntityId; N]) -> [&mut Entity; N] {
         let indices = indices.map(|id| usize::try_from(id.0).unwrap());
         index_many::simple::index_many_mut(&mut self.0, indices)
+    }
+
+    pub fn combinations(&mut self, f: impl Fn(&mut Entity, &mut Entity)) {
+        for i in 0..self.0.len() {
+            for j in (i + 1)..self.0.len() {
+                let [entity1, entity2] = index_many::simple::index_many_mut(&mut self.0, [i, j]);
+                f(entity1, entity2);
+            }
+        }
     }
 }
 
