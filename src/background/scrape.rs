@@ -138,15 +138,17 @@ impl Scraper {
             url: url.to_string(),
         })?;
 
-        let mut token = page.collectors.thumbs.last().unwrap().token.clone();
+        let token = page.collectors.thumbs.last().map(|thumb| thumb.token.clone());
         on_fans(page.collectors.reviews.into_iter().map(|review| User { id: UserId(review.fan_id), url: format!("https://bandcamp.com/{}", review.username), }).collect())?;
         on_fans(page.collectors.thumbs.into_iter().map(|thumb| User { id: UserId(thumb.fan_id), url: format!("https://bandcamp.com/{}", thumb.username), }).collect())?;
 
-        while more_available {
-            let response = self.scrape_collectors_api(url, &page.properties, &token)?;
-            token = response.results.last().unwrap().token.clone();
-            more_available = response.more_available;
-            on_fans(response.results.into_iter().map(|thumb| User { id: UserId(thumb.fan_id), url: format!("https://bandcamp.com/{}", thumb.username), }).collect())?;
+        if let Some(mut token) = token {
+            while more_available {
+                let response = self.scrape_collectors_api(url, &page.properties, &token)?;
+                token = response.results.last().unwrap().token.clone();
+                more_available = response.more_available;
+                on_fans(response.results.into_iter().map(|thumb| User { id: UserId(thumb.fan_id), url: format!("https://bandcamp.com/{}", thumb.username), }).collect())?;
+            }
         }
     }
 
