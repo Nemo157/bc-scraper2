@@ -11,7 +11,7 @@ use opt::{
 };
 
 const LIGHT_RED: Color = Color::new(1.0, 0.0, 0.0, 0.2);
-const MODE: once_cell::sync::Lazy::<dark_light::Mode> = once_cell::sync::Lazy::new(|| dark_light::detect());
+static MODE: once_cell::sync::Lazy::<dark_light::Mode> = once_cell::sync::Lazy::new(|| dark_light::detect());
 
 fn user_mesh(ctx: &mut Context) -> Mesh {
     Mesh::new_rectangle(
