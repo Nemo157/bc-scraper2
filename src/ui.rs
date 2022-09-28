@@ -13,29 +13,35 @@ use opt::{
 const LIGHT_RED: Color = Color::new(1.0, 0.0, 0.0, 0.2);
 static MODE: once_cell::sync::Lazy::<dark_light::Mode> = once_cell::sync::Lazy::new(|| dark_light::detect());
 
-fn user_mesh(ctx: &mut Context) -> Mesh {
-    Mesh::new_rectangle(
-        ctx,
-        DrawMode::fill(),
-        Rect::new(-5.0, -5.0, 10.0, 10.0),
-        match *MODE { dark_light::Mode::Light => BLACK, dark_light::Mode::Dark => WHITE },
-    )
-    .unwrap()
+fn user_mesh(ctx: &mut Context) -> &'static Mesh {
+    static MESH: once_cell::sync::OnceCell::<Mesh> = once_cell::sync::OnceCell::new();
+    MESH.get_or_init(|| {
+        Mesh::new_rectangle(
+            ctx,
+            DrawMode::fill(),
+            Rect::new(-5.0, -5.0, 10.0, 10.0),
+            match *MODE { dark_light::Mode::Light => BLACK, dark_light::Mode::Dark => WHITE },
+        )
+        .unwrap()
+    })
 }
 
-fn album_mesh(ctx: &mut Context) -> Mesh {
-    Mesh::new_circle(
-        ctx,
-        DrawMode::fill(),
-        [0.0, 0.0],
-        5.0,
-        0.1,
-        match *MODE { dark_light::Mode::Light => BLACK, dark_light::Mode::Dark => WHITE },
-    )
-    .unwrap()
+fn album_mesh(ctx: &mut Context) -> &'static Mesh {
+    static MESH: once_cell::sync::OnceCell::<Mesh> = once_cell::sync::OnceCell::new();
+    MESH.get_or_init(|| {
+        Mesh::new_circle(
+            ctx,
+            DrawMode::fill(),
+            [0.0, 0.0],
+            5.0,
+            0.1,
+            match *MODE { dark_light::Mode::Light => BLACK, dark_light::Mode::Dark => WHITE },
+        )
+        .unwrap()
+    })
 }
 
-fn entity_mesh(ctx: &mut Context, entity: &Entity) -> Mesh {
+fn entity_mesh(ctx: &mut Context, entity: &Entity) -> &'static Mesh {
     match entity.data {
         EntityData::Album(_) => album_mesh(ctx),
         EntityData::User(_) => user_mesh(ctx),
@@ -73,7 +79,7 @@ impl Ui {
             let pos = entity.position + entity.velocity * delta;
             if pos > tl && pos < br {
                 let mesh = entity_mesh(ctx, entity);
-                ggez::graphics::draw(ctx, &mesh, DrawParam::from((pos,))).unwrap();
+                ggez::graphics::draw(ctx, mesh, DrawParam::from((pos,))).unwrap();
                 count += 1;
             }
         }
