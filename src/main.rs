@@ -126,6 +126,12 @@ impl EventHandler for App {
             KeyCode::Q if keymods.contains(KeyMods::CTRL) => {
                 ggez::event::quit(ctx);
             }
+            KeyCode::L => {
+                self.ui.enable_lines ^= true;
+            }
+            KeyCode::N => {
+                self.ui.enable_nodes ^= true;
+            }
             _ => {}
         }
     }

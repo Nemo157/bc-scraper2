@@ -51,6 +51,8 @@ struct Camera {
 #[derive(Debug)]
 pub struct Ui {
     camera: Camera,
+    pub enable_lines: bool,
+    pub enable_nodes: bool,
 }
 
 impl Ui {
@@ -60,6 +62,8 @@ impl Ui {
                 position: Position::new(0.0, 0.0),
                 zoom: 1.0,
             },
+            enable_lines: true,
+            enable_nodes: true,
         }
     }
 
@@ -141,8 +145,8 @@ impl Ui {
         ggez::graphics::apply_transformations(ctx).unwrap();
         let coords = ggez::graphics::screen_coordinates(ctx);
         let (tl, br) = (self.offset_to_camera(Position::new(coords.x, coords.y)), self.offset_to_camera(Position::new(coords.x + coords.w, coords.y + coords.h)));
-        let lines = self.draw_relationships(data, ctx, delta, (tl, br));
-        let nodes = self.draw_entities(data, ctx, delta, (tl, br));
+        let lines = self.enable_lines.then(|| self.draw_relationships(data, ctx, delta, (tl, br))).unwrap_or_default();
+        let nodes = self.enable_nodes.then(|| self.draw_entities(data, ctx, delta, (tl, br))).unwrap_or_default();
         ggez::graphics::origin(ctx);
         ggez::graphics::apply_transformations(ctx).unwrap();
         self.draw_status_bar(data, ctx, tps, sim_duration, fps, frame_duration, nodes, lines);
