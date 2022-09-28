@@ -153,7 +153,7 @@ impl Scraper {
     #[fehler::throws]
     #[tracing::instrument(skip(self, on_fan, on_collection))]
     pub(crate) fn scrape_fan(&self, url: &Url, on_fan: impl FnOnce(User) -> Result<()>, mut on_collection: impl FnMut(Vec<Album>) -> Result<()>) {
-        let mut page = self.scrape_fan_page(&url)?;
+        let mut page = self.scrape_fan_page(url)?;
 
         on_fan(User { id: UserId(page.fan_data.fan_id), url: format!("https://bandcamp.com/{}", page.fan_data.username) })?;
 

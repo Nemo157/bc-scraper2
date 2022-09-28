@@ -11,7 +11,7 @@ use opt::{
 };
 
 const LIGHT_RED: Color = Color::new(1.0, 0.0, 0.0, 0.2);
-static MODE: once_cell::sync::Lazy::<dark_light::Mode> = once_cell::sync::Lazy::new(|| dark_light::detect());
+static MODE: once_cell::sync::Lazy::<dark_light::Mode> = once_cell::sync::Lazy::new(dark_light::detect);
 
 fn user_mesh(ctx: &mut Context) -> &'static Mesh {
     static MESH: once_cell::sync::OnceCell::<Mesh> = once_cell::sync::OnceCell::new();
@@ -196,7 +196,7 @@ impl Ui {
             }
         }
 
-        return None;
+        None
     }
 
     fn offset_to_camera(&self, position: Position) -> Position {
@@ -205,12 +205,7 @@ impl Ui {
 
     fn update_under_mouse(&mut self, data: &mut Data, mouse_pos: Position) {
         for entity in &mut data.entities {
-            let dist = (entity.position - mouse_pos).chebyshev();
-            if dist > 5.0 {
-                entity.is_under_mouse = false;
-            } else if dist < 5.0 {
-                entity.is_under_mouse = true;
-            }
+            entity.is_under_mouse = (entity.position - mouse_pos).chebyshev() < 5.0;
         }
     }
 

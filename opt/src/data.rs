@@ -147,7 +147,7 @@ impl<'a> core::iter::IntoIterator for &'a mut Entities {
     type Item = &'a mut Entity;
     type IntoIter = core::slice::IterMut<'a, Entity>;
     fn into_iter(self) -> Self::IntoIter {
-        (&mut self.0).into_iter()
+        self.0.iter_mut()
     }
 }
 
@@ -163,7 +163,7 @@ impl<'a> core::iter::IntoIterator for &'a Entities {
     type Item = &'a Entity;
     type IntoIter = core::slice::Iter<'a, Entity>;
     fn into_iter(self) -> Self::IntoIter {
-        (&self.0).into_iter()
+        self.0.iter()
     }
 }
 

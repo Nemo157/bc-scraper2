@@ -213,7 +213,7 @@ impl EventHandler for App {
         let delta = if self.pause_sim { Duration::default() } else { self.last_update.elapsed() };
         let (fps, draw_duration) = (self.fps.per_second(), self.fps.inner_duration());
         self.fps.record(|| {
-            self.ui.draw(&mut self.data, ctx, delta, self.tps.per_second(), self.tps.inner_duration(), fps, draw_duration);
+            self.ui.draw(&self.data, ctx, delta, self.tps.per_second(), self.tps.inner_duration(), fps, draw_duration);
         });
         ggez::graphics::present(ctx)?;
     }

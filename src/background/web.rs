@@ -37,7 +37,7 @@ impl<T: DebugExt> DebugExt for &T {
 
 impl<T: DebugExt> DebugExt for Option<T> {
     fn dbg(&self) -> String {
-        self.as_ref().map(T::dbg).unwrap_or_else(|| format!("None"))
+        self.as_ref().map(T::dbg).unwrap_or_else(|| "None".to_owned())
     }
 }
 
