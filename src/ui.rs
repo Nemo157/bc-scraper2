@@ -128,18 +128,27 @@ impl Ui {
     }
 
     fn draw_status_bar(&self, data: &Data, ctx: &mut Context, tps: f64, sim_duration: Duration, fps: f64, frame_duration: Duration, nodes: usize, _lines: usize) {
+        let screen = ggez::graphics::screen_coordinates(ctx);
+
         let albums = data.albums.len();
         let users = data.users.len();
+
+        let text = Text::new(format!(indoc::indoc!("
+            tps: {:.2} ({:.2?})
+            fps: {:.2} ({:.2?})
+            drawn: {}/{}
+        "), tps, sim_duration, fps, frame_duration, nodes, (albums + users)));
+
+        let width = text.width(ctx);
+        ggez::graphics::draw(ctx, &text, DrawParam::from(([screen.w - width as f32, 0.0], self.foreground))).unwrap();
+
         let links = data.relationships.len();
 
         let mut text = Text::new(format!(indoc::indoc!("
-            tps: {:.2} ({:.2?})
-            fps: {:.2} ({:.2?})
             albums: {}
             users: {}
             links: {}
-            drawn: {}/{}
-        "), tps, sim_duration, fps, frame_duration, albums, users, links, nodes, (albums + users)));
+        "), albums, users, links));
 
         for entity in &data.entities {
             if entity.is_under_mouse {
@@ -154,14 +163,14 @@ impl Ui {
             }
         }
 
-        ggez::graphics::draw(
-            ctx,
-            &text,
-            DrawParam::from((
-                [0.0, 0.0],
-                self.foreground,
-            )),
-        ).unwrap();
+        ggez::graphics::draw(ctx, &text, DrawParam::from(([0.0, 0.0], self.foreground))).unwrap();
+
+        let mouse_pos = ggez::input::mouse::position(ctx);
+        let mouse_pos = self.offset_to_camera(Position::from(mouse_pos));
+
+        let text = Text::new(format!("{}, {}", mouse_pos.0.x, mouse_pos.0.y));
+        let height = text.height(ctx);
+        ggez::graphics::draw(ctx, &text, DrawParam::from(([0.0, screen.h - height as f32], self.foreground))).unwrap();
     }
 
     pub fn draw(&mut self, data: &Data, ctx: &mut Context, delta: Duration, tps: f64, sim_duration: Duration, fps: f64, frame_duration: Duration) {
