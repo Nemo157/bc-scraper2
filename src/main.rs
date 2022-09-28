@@ -11,11 +11,11 @@ use opt::{
     data::{Album, User, Data, EntityData},
     sim,
 };
+use crate::ui::Ui;
 
 mod ui;
 mod background;
 mod fps;
-
 
 const SIM_FREQ: u64 = 20;
 const SIM_TIME: Duration = Duration::from_millis(1000 / SIM_FREQ);
@@ -59,7 +59,7 @@ fn main() {
     // Create an instance of your event handler.
     // Usually, you should provide it with the Context object
     // so it can load resources like images during setup.
-    let mut ui = Ui::new(&mut ctx)?;
+    let mut ui = App::new(&mut ctx)?;
 
     for url in args.albums {
         ui.to_scrape_tx.send(background::Request::Album { url })?;
@@ -77,13 +77,12 @@ fn main() {
     ggez::event::run(&mut ctx, &mut event_loop, &mut ui)?;
 }
 
-struct Ui {
+struct App {
+    ui: Ui,
     data: Data,
     last_update: Instant,
     last_mouse_position: Position,
-    // target 5 seconds at 60 fps/20 tps
-    fps: fps::Counter<300>,
-    tps: fps::Counter<{5 * SIM_FREQ as usize}>,
+    tps: fps::Counter<{2 * SIM_FREQ as usize}>,
     pause_sim: bool,
     // Order matters, sender and receiver must be dropped before background thread to tell it to shutdown
     to_scrape_tx: Sender<background::Request>,
@@ -91,23 +90,19 @@ struct Ui {
     _background: background::Thread,
 }
 
-impl Ui {
+impl App {
     #[fehler::throws]
-    pub fn new(ctx: &mut Context) -> Ui {
-        let mut data = Data::default();
-
-        ui::init(&mut data, ctx);
-
+    pub fn new(_ctx: &mut Context) -> Self {
         let (scraped_tx, scraped_rx) = crossbeam::channel::bounded(1);
         let (to_scrape_tx, to_scrape_rx) = crossbeam::channel::unbounded();
 
         let _background = background::Thread::spawn(to_scrape_rx, scraped_tx)?;
 
-        Ui {
-            data,
+        Self {
+            data: Data::default(),
+            ui: Ui::new(),
             last_update: Instant::now(),
-            fps: fps::Counter::default(),
-            tps: fps::Counter::default(),
+            tps: fps::Counter::new(20.0),
             last_mouse_position: Position::new(0.0, 0.0),
             pause_sim: false,
             to_scrape_tx,
@@ -117,7 +112,7 @@ impl Ui {
     }
 }
 
-impl EventHandler for Ui {
+impl EventHandler for App {
     fn key_down_event(&mut self, ctx: &mut Context, keycode: KeyCode, keymods: KeyMods, _repeat: bool) {
         match keycode {
             KeyCode::Space => {
@@ -134,11 +129,11 @@ impl EventHandler for Ui {
     }
 
     fn mouse_button_down_event(&mut self, ctx: &mut Context, button: MouseButton, x: f32, y: f32) {
-        ui::mouse_down(&mut self.data, ctx, button, Position::new(x, y));
+        self.ui.mouse_down(&mut self.data, ctx, button, Position::new(x, y));
     }
 
     fn mouse_button_up_event(&mut self, ctx: &mut Context, button: MouseButton, x: f32, y: f32) {
-        if let Some(entity) = ui::mouse_up(&mut self.data, ctx, button, Position::new(x, y)) {
+        if let Some(entity) = self.ui.mouse_up(&mut self.data, ctx, button, Position::new(x, y)) {
             match &entity.data {
                 EntityData::Album(Album { url, .. }) => {
                     self.to_scrape_tx.send(background::Request::Album { url: url.clone() }).unwrap();
@@ -152,7 +147,7 @@ impl EventHandler for Ui {
 
     fn mouse_motion_event(&mut self, ctx: &mut Context, x: f32, y: f32, dx: f32, dy: f32) {
         self.last_mouse_position = Position::new(x, y);
-        ui::mouse_motion(
+        self.ui.mouse_motion(
             &mut self.data,
             ctx,
             self.last_mouse_position,
@@ -160,21 +155,16 @@ impl EventHandler for Ui {
         );
     }
 
-    fn mouse_wheel_event(&mut self, ctx: &mut Context, x: f32, y: f32) {
-        ui::mouse_wheel(
-            &mut self.data,
-            ctx,
-            self.last_mouse_position,
-            Velocity::new(x, y),
-        );
+    fn mouse_wheel_event(&mut self, _ctx: &mut Context, x: f32, y: f32) {
+        self.ui.mouse_wheel(self.last_mouse_position, Velocity::new(x, y));
     }
 
     fn resize_event(&mut self, ctx: &mut Context, width: f32, height: f32) {
-        ui::resize(&mut self.data, ctx, width, height);
+        self.ui.resize(ctx, width, height);
     }
 
     fn update(&mut self, ctx: &mut Context) -> GameResult<()> {
-        ui::update(&mut self.data, ctx);
+        self.ui.update(&mut self.data, ctx);
         if ggez::timer::check_update_time(ctx, SIM_FREQ as u32) {
             if !self.pause_sim {
                 sim::update(&mut self.data, SIM_TIME);
@@ -210,8 +200,7 @@ impl EventHandler for Ui {
     #[fehler::throws(GameError)]
     fn draw(&mut self, ctx: &mut Context) {
         let delta = if self.pause_sim { Duration::default() } else { self.last_update.elapsed() };
-        ui::draw(&mut self.data, ctx, delta, self.tps.value(), self.fps.value());
+        self.ui.draw(&mut self.data, ctx, delta, self.tps.value());
         ggez::graphics::present(ctx)?;
-        self.fps.tick();
     }
 }

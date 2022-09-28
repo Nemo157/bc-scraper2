@@ -44,12 +44,6 @@ pub enum EntityData {
     User(User),
 }
 
-#[derive(Default, Debug)]
-pub struct Camera {
-    pub position: Position,
-    pub zoom: f32,
-}
-
 #[derive(Debug, PartialOrd, Ord, PartialEq, Eq)]
 pub struct Relationship {
     pub album: EntityId,
@@ -63,7 +57,6 @@ pub struct Entities(Vec<Entity>);
 pub struct Data {
     pub entities: Entities,
     pub relationships: BTreeSet<Relationship>,
-    pub camera: Camera,
     pub albums: BTreeMap<AlbumId, EntityId>,
     pub users: BTreeMap<UserId, EntityId>,
 }

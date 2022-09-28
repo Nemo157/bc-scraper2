@@ -9,6 +9,16 @@ pub struct Counter<const N: usize> {
 }
 
 impl<const N: usize> Counter<N> {
+    pub fn new(baseline: f64) -> Self {
+        let accumulated = Duration::from_secs_f64((baseline / (N as f64)).recip());
+        Self {
+            accumulated,
+            last: Instant::now(),
+            samples: [accumulated / (N as u32); N],
+            index: 0,
+        }
+    }
+
     pub fn tick(&mut self) {
         let sample = std::mem::replace(&mut self.last, Instant::now()).elapsed();
         self.accumulated -= self.samples[self.index];

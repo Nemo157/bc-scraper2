@@ -5,6 +5,7 @@ use ggez::{
 };
 use std::time::{Duration, Instant};
 
+use crate::fps;
 use opt::{
     phys::{Distance, Position, Velocity, Float},
     data::{Data, Album, User, Entity, EntityData, Drag},
@@ -42,198 +43,211 @@ fn entity_mesh(ctx: &mut Context, entity: &Entity) -> Mesh {
     }
 }
 
-fn transform(data: &Data, ctx: &mut Context) {
-    ggez::graphics::set_transform(ctx, DrawParam::new().dest(data.camera.position).scale([data.camera.zoom, data.camera.zoom]).to_matrix());
-    ggez::graphics::apply_transformations(ctx).unwrap();
+#[derive(Debug)]
+struct Camera {
+    position: Position,
+    zoom: f32,
 }
 
-fn draw_entities(data: &mut Data, ctx: &mut Context, delta: Duration, (tl, br): (Position, Position)) -> usize {
-    let mut count = 0;
-    for entity in &data.entities {
-        let pos = entity.position + entity.velocity * delta;
-        if pos > tl && pos < br {
-            let mesh = entity_mesh(ctx, entity);
-            ggez::graphics::draw(ctx, &mesh, DrawParam::from((pos,))).unwrap();
-            count += 1;
+#[derive(Debug)]
+pub struct Ui {
+    camera: Camera,
+    fps: fps::Counter<120>,
+}
+
+impl Ui {
+    pub fn new() -> Self {
+        Self { 
+            camera: Camera {
+                position: Position::new(0.0, 0.0),
+                zoom: 1.0,
+            },
+            fps: fps::Counter::new(60.0),
         }
     }
-    count
-}
 
-fn draw_relationships(data: &mut Data, ctx: &mut Context, delta: Duration, (tl, br): (Position, Position)) -> usize {
-    let mut mesh = MeshBuilder::new();
-    let mut count = 0;
-    for rel in &data.relationships {
-        let entity1 = &data.entities[rel.album];
-        let entity2 = &data.entities[rel.user];
-        let pos1 = entity1.position + entity1.velocity * delta;
-        let pos2 = entity2.position + entity2.velocity * delta;
-        let dist = pos1 - pos2;
-        if dist.chebyshev().abs() > 1.0 && ((pos1 > tl && pos1 < br) || (pos2 > tl && pos2 < br)) {
-            mesh.line(&[pos1, pos2], 0.5, LIGHT_RED).unwrap();
-            count += 1;
+    fn draw_entities(&self, data: &Data, ctx: &mut Context, delta: Duration, (tl, br): (Position, Position)) -> usize {
+        let mut count = 0;
+        for entity in &data.entities {
+            let pos = entity.position + entity.velocity * delta;
+            if pos > tl && pos < br {
+                let mesh = entity_mesh(ctx, entity);
+                ggez::graphics::draw(ctx, &mesh, DrawParam::from((pos,))).unwrap();
+                count += 1;
+            }
         }
+        count
     }
-    if count > 0 {
-        let mesh = mesh.build(ctx).unwrap();
-        ggez::graphics::draw(ctx, &mesh, DrawParam::default()).unwrap();
+
+    fn draw_relationships(&self, data: &Data, ctx: &mut Context, delta: Duration, (tl, br): (Position, Position)) -> usize {
+        let mut mesh = MeshBuilder::new();
+        let mut count = 0;
+        for rel in &data.relationships {
+            let entity1 = &data.entities[rel.album];
+            let entity2 = &data.entities[rel.user];
+            let pos1 = entity1.position + entity1.velocity * delta;
+            let pos2 = entity2.position + entity2.velocity * delta;
+            let dist = pos1 - pos2;
+            if dist.chebyshev().abs() > 1.0 && ((pos1 > tl && pos1 < br) || (pos2 > tl && pos2 < br)) {
+                mesh.line(&[pos1, pos2], 0.5, LIGHT_RED).unwrap();
+                count += 1;
+            }
+        }
+        if count > 0 {
+            let mesh = mesh.build(ctx).unwrap();
+            ggez::graphics::draw(ctx, &mesh, DrawParam::default()).unwrap();
+        }
+        count
     }
-    count
-}
 
-fn draw_status_bar(data: &mut Data, ctx: &mut Context, tps: f64, fps: f64, nodes: usize, lines: usize) {
-    let albums = data.albums.len();
-    let users = data.users.len();
-    let links = data.relationships.len();
+    fn draw_status_bar(&self, data: &Data, ctx: &mut Context, tps: f64, nodes: usize, lines: usize) {
+        let albums = data.albums.len();
+        let users = data.users.len();
+        let links = data.relationships.len();
 
-    let mut text = Text::new(format!(indoc::indoc!("
-        tps: {:.2}
-        fps: {:.2}
-        albums, users, links: {} {} {}
-        drawn: {}/{} {}/{}
-    "), tps, fps, albums, users, links, nodes, (albums + users), lines, links));
+        let mut text = Text::new(format!(indoc::indoc!("
+            tps: {:.2}
+            fps: {:.2}
+            albums, users, links: {} {} {}
+            drawn: {}/{} {}/{}
+        "), tps, self.fps.value(), albums, users, links, nodes, (albums + users), lines, links));
 
-    for entity in &mut data.entities {
-        if entity.is_under_mouse {
-            match &entity.data {
-                EntityData::Album(Album { url, .. }) => {
-                    text.add(format!("\nalbum: {url}"));
+        for entity in &data.entities {
+            if entity.is_under_mouse {
+                match &entity.data {
+                    EntityData::Album(Album { url, .. }) => {
+                        text.add(format!("\nalbum: {url}"));
+                    }
+                    EntityData::User(User { url, .. }) => {
+                        text.add(format!("\nuser: {url}"));
+                    }
                 }
-                EntityData::User(User { url, .. }) => {
-                    text.add(format!("\nuser: {url}"));
+            }
+        }
+
+        ggez::graphics::draw(
+            ctx,
+            &text,
+            DrawParam::from((
+                [0.0, 0.0],
+                match *MODE {
+                    dark_light::Mode::Light => BLACK,
+                    dark_light::Mode::Dark => WHITE
+                }
+            )),
+        ).unwrap();
+    }
+
+    pub fn draw(&mut self, data: &Data, ctx: &mut Context, delta: Duration, tps: f64) {
+        ggez::graphics::clear(ctx, match *MODE { dark_light::Mode::Light => WHITE, dark_light::Mode::Dark => BLACK });
+        ggez::graphics::set_transform(ctx, DrawParam::new().dest(self.camera.position).scale([self.camera.zoom, self.camera.zoom]).to_matrix());
+        ggez::graphics::apply_transformations(ctx).unwrap();
+        let coords = ggez::graphics::screen_coordinates(ctx);
+        let (tl, br) = (self.offset_to_camera(Position::new(coords.x, coords.y)), self.offset_to_camera(Position::new(coords.x + coords.w, coords.y + coords.h)));
+        let lines = self.draw_relationships(data, ctx, delta, (tl, br));
+        let nodes = self.draw_entities(data, ctx, delta, (tl, br));
+        ggez::graphics::origin(ctx);
+        ggez::graphics::apply_transformations(ctx).unwrap();
+        self.draw_status_bar(data, ctx, tps, nodes, lines);
+        self.fps.tick();
+    }
+
+    fn update_drag(&mut self, data: &mut Data, mouse_pos: Position, delta: Distance) {
+        let mut dragged_item = false;
+
+        for entity in &mut data.entities {
+            if entity.dragged.is_some() {
+                entity.position = mouse_pos;
+                dragged_item = true;
+            }
+        }
+
+        if !dragged_item {
+            self.camera.position += delta;
+        }
+    }
+
+    fn start_drag(&mut self, data: &mut Data) {
+        for entity in &mut data.entities {
+            if entity.is_under_mouse {
+                entity.dragged = Some(Drag {
+                    start_position: entity.position,
+                    start_time: Instant::now(),
+                });
+                return;
+            }
+        }
+    }
+
+    fn stop_drag<'a>(&mut self, data: &'a mut Data) -> Option<&'a Entity> {
+        static CLICK_DURATION: Duration = Duration::from_millis(100);
+
+        for entity in &mut data.entities {
+            if let Some(Drag { start_position, start_time }) = entity.dragged.take() {
+                if (start_position - entity.position).chebyshev() < 5.0 && start_time.elapsed() < CLICK_DURATION {
+                    return Some(entity);
                 }
             }
         }
+
+        return None;
     }
 
-    ggez::graphics::draw(
-        ctx,
-        &text,
-        DrawParam::from((
-            [0.0, 0.0],
-            match *MODE {
-                dark_light::Mode::Light => BLACK,
-                dark_light::Mode::Dark => WHITE
-            }
-        )),
-    ).unwrap();
-}
-
-pub fn draw(data: &mut Data, ctx: &mut Context, delta: Duration, tps: f64, fps: f64) {
-    ggez::graphics::clear(ctx,
-            match *MODE {
-                dark_light::Mode::Light => WHITE,
-                dark_light::Mode::Dark => BLACK,
-            });
-    transform(data, ctx);
-    let coords = ggez::graphics::screen_coordinates(ctx);
-    let (tl, br) = (offset_to_camera(data, Position::new(coords.x, coords.y)), offset_to_camera(data, Position::new(coords.x + coords.w, coords.y + coords.h)));
-    let lines = draw_relationships(data, ctx, delta, (tl, br));
-    let nodes = draw_entities(data, ctx, delta, (tl, br));
-    ggez::graphics::origin(ctx);
-    ggez::graphics::apply_transformations(ctx).unwrap();
-    draw_status_bar(data, ctx, tps, fps, nodes, lines);
-}
-
-fn update_drag(data: &mut Data, mouse_pos: Position, delta: Distance) {
-    let mut dragged_item = false;
-
-    for entity in &mut data.entities {
-        if entity.dragged.is_some() {
-            entity.position = mouse_pos;
-            dragged_item = true;
-        }
+    fn offset_to_camera(&self, position: Position) -> Position {
+        Position::from((position.0 - self.camera.position.0) / self.camera.zoom)
     }
 
-    if !dragged_item {
-        data.camera.position += delta;
-    }
-}
-
-fn start_drag(data: &mut Data) {
-    for entity in &mut data.entities {
-        if entity.is_under_mouse {
-            entity.dragged = Some(Drag {
-                start_position: entity.position,
-                start_time: Instant::now(),
-            });
-            return;
-        }
-    }
-}
-
-fn stop_drag(data: &mut Data) -> Option<&Entity> {
-    static CLICK_DURATION: Duration = Duration::from_millis(100);
-
-    for entity in &mut data.entities {
-        if let Some(Drag { start_position, start_time }) = entity.dragged.take() {
-            if (start_position - entity.position).chebyshev() < 5.0 && start_time.elapsed() < CLICK_DURATION {
-                return Some(entity);
+    fn update_under_mouse(&mut self, data: &mut Data, mouse_pos: Position) {
+        for entity in &mut data.entities {
+            let dist = (entity.position - mouse_pos).chebyshev();
+            if dist > 5.0 {
+                entity.is_under_mouse = false;
+            } else if dist < 5.0 {
+                entity.is_under_mouse = true;
             }
         }
     }
 
-    return None;
-}
-
-fn offset_to_camera(data: &mut Data, mouse_pos: Position) -> Position {
-    Position::from((mouse_pos.0 - data.camera.position.0) / data.camera.zoom)
-}
-
-fn update_under_mouse(data: &mut Data, mouse_pos: Position) {
-    for entity in &mut data.entities {
-        let dist = (entity.position - mouse_pos).chebyshev();
-        if dist > 5.0 {
-            entity.is_under_mouse = false;
-        } else if dist < 5.0 {
-            entity.is_under_mouse = true;
+    pub fn mouse_down(&mut self, data: &mut Data, ctx: &mut Context, button: MouseButton, pos: Position) {
+        let _ = (ctx, pos);
+        if button == MouseButton::Left {
+            self.start_drag(data);
         }
     }
-}
 
-pub fn mouse_down(data: &mut Data, ctx: &mut Context, button: MouseButton, pos: Position) {
-    let _ = (ctx, pos);
-    if button == MouseButton::Left {
-        start_drag(data);
+    pub fn mouse_up<'a>(&mut self, data: &'a mut Data, ctx: &mut Context, button: MouseButton, pos: Position) -> Option<&'a Entity> {
+        let _ = (ctx, pos);
+        if button == MouseButton::Left {
+            self.stop_drag(data)
+        } else {
+            None
+        }
     }
-}
 
-pub fn mouse_up<'a>(data: &'a mut Data, ctx: &mut Context, button: MouseButton, pos: Position) -> Option<&'a Entity> {
-    let _ = (ctx, pos);
-    if button == MouseButton::Left {
-        stop_drag(data)
-    } else {
-        None
+    pub fn mouse_wheel(&mut self, mouse_pos: Position, wheel_vel: Velocity) {
+        if wheel_vel.0.y != 0.0 {
+            let zoom_ratio = if wheel_vel.0.y > 0.0 { 1.5 } else { 1.0 / 1.5 };
+            self.camera.zoom *= zoom_ratio;
+            self.camera.position = mouse_pos + (self.camera.position - mouse_pos) * zoom_ratio;
+        }
     }
-}
 
-pub fn mouse_wheel(data: &mut Data, _ctx: &mut Context, mouse_pos: Position, wheel_vel: Velocity) {
-    if wheel_vel.0.y != 0.0 {
-        let zoom_ratio = if wheel_vel.0.y > 0.0 { 1.5 } else { 1.0 / 1.5 };
-        data.camera.zoom *= zoom_ratio;
-        data.camera.position = mouse_pos + (data.camera.position - mouse_pos) * zoom_ratio;
+    pub fn mouse_motion(&mut self, data: &mut Data, ctx: &mut Context, pos: Position, delta: Distance) {
+        let pos = self.offset_to_camera(pos);
+        if ggez::input::mouse::button_pressed(ctx, MouseButton::Left) {
+            self.update_drag(data, pos, delta);
+        }
     }
-}
 
-pub fn mouse_motion(data: &mut Data, ctx: &mut Context, pos: Position, delta: Distance) {
-    let pos = offset_to_camera(data, pos);
-    if ggez::input::mouse::button_pressed(ctx, MouseButton::Left) {
-        update_drag(data, pos, delta);
+    pub fn resize(&mut self, ctx: &mut Context, width: f32, height: f32) {
+        let coords = ggez::graphics::screen_coordinates(ctx);
+        self.camera.position += Distance::new((width - coords.w) / 2.0, (height - coords.h) / 2.0);
+        ggez::graphics::set_screen_coordinates(ctx, Rect::new(0.0, 0.0, width, height)).unwrap();
     }
-}
 
-pub fn resize(data: &mut Data, ctx: &mut Context, width: f32, height: f32) {
-    let coords = ggez::graphics::screen_coordinates(ctx);
-    data.camera.position += Distance::new((width - coords.w) / 2.0, (height - coords.h) / 2.0);
-    ggez::graphics::set_screen_coordinates(ctx, Rect::new(0.0, 0.0, width, height)).unwrap();
-}
-
-pub fn update(data: &mut Data, ctx: &mut Context) {
-    let mouse_pos = ggez::input::mouse::position(ctx);
-    let mouse_pos = offset_to_camera(data, Position::from(mouse_pos));
-    update_under_mouse(data, mouse_pos);
-}
-
-pub fn init(data: &mut Data, _: &mut Context) {
-    data.camera.zoom = 1.0;
+    pub fn update(&mut self, data: &mut Data, ctx: &mut Context) {
+        let mouse_pos = ggez::input::mouse::position(ctx);
+        let mouse_pos = self.offset_to_camera(Position::from(mouse_pos));
+        self.update_under_mouse(data, mouse_pos);
+    }
 }
