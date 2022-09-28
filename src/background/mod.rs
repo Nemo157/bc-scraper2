@@ -11,6 +11,7 @@ mod web;
 pub enum Request {
     User { url: String },
     Album { url: String },
+    Artist { url: String },
 }
 
 #[derive(Debug)]
@@ -19,6 +20,7 @@ pub enum Response {
     Album(Album),
     Fans(Album, Vec<User>),
     Collection(User, Vec<Album>),
+    Release(String),
 }
 
 #[derive(Debug)]
@@ -104,6 +106,12 @@ impl Background {
                     Ok(())
                 })?;
                 self.scraped.send(Response::Album(album.replace(None).take().unwrap()))?;
+            }
+            Request::Artist { url } => {
+                self.scraper.scrape_artist(&Url::parse(&url)?, |album| {
+                    self.scraped.send(Response::Release(album))?;
+                    Ok(())
+                })?;
             }
         }
     }

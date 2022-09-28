@@ -171,6 +171,18 @@ impl Scraper {
     }
 
     #[fehler::throws]
+    #[tracing::instrument(skip(self, on_release))]
+    pub(crate) fn scrape_artist(&self, url: &Url, mut on_release: impl FnMut(String) -> Result<()>) {
+        let data = self.client.get(url)?;
+        let document = scraper::Html::parse_document(&data);
+
+        for a in document.try_select("li.music-grid-item a")? {
+            let href = a.value().attr("href").ok_or_else(|| eyre::eyre!("missing href"))?;
+            on_release(url.join(href)?.to_string())?;
+        }
+    }
+
+    #[fehler::throws]
     #[tracing::instrument(skip(self), fields(%url))]
     fn scrape_album_page(&self, url: &Url) -> AlbumPage {
         let data = self.client.get(url)?;

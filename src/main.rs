@@ -27,6 +27,8 @@ struct Args {
     users: Vec<String>,
     #[arg(long("album"), value_name("url"))]
     albums: Vec<String>,
+    #[arg(long("artist"), value_name("url"))]
+    artists: Vec<String>,
     #[arg(long, value_names(["albums", "users"]), num_args(2))]
     random: Vec<u64>,
 }
@@ -67,6 +69,10 @@ fn main() {
 
     for username in args.users {
         ui.to_scrape_tx.send(background::Request::User { url: format!("https://bandcamp.com/{username}") })?;
+    }
+
+    for url in args.artists {
+        ui.to_scrape_tx.send(background::Request::Artist { url })?;
     }
 
     if let [albums, users] = args.random[..] {
@@ -192,6 +198,9 @@ impl EventHandler for App {
                         for album in albums {
                             self.data.add_relationship(&album, &user);
                         }
+                    }
+                    background::Response::Release(url) => {
+                        self.to_scrape_tx.send(background::Request::Album { url }).unwrap();
                     }
                     background::Response::Album(Album { id, .. }) => {
                         if let Some(&id) = self.data.albums.get(&id) {
