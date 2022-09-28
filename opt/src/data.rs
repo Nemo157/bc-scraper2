@@ -77,7 +77,7 @@ pub struct Album {
 impl EntityData {
     fn at_random_location(self) -> Entity {
         let mut rng = rand::thread_rng();
-        let positions = Uniform::new(Position::new(200.0, 200.0), Position::new(400.0, 400.0));
+        let positions = Uniform::new(Position::new(0.0, 0.0), Position::new(800.0, 600.0));
         let velocities = Uniform::new(Velocity::new(-10.0, -10.0), Velocity::new(10.0, 10.0));
 
         Entity {
