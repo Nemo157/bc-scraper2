@@ -5,7 +5,6 @@ use ggez::{
 };
 use std::time::{Duration, Instant};
 
-use crate::fps;
 use opt::{
     phys::{Distance, Position, Velocity, Float},
     data::{Data, Album, User, Entity, EntityData, Drag},
@@ -52,7 +51,6 @@ struct Camera {
 #[derive(Debug)]
 pub struct Ui {
     camera: Camera,
-    fps: fps::Counter<120>,
 }
 
 impl Ui {
@@ -62,7 +60,6 @@ impl Ui {
                 position: Position::new(0.0, 0.0),
                 zoom: 1.0,
             },
-            fps: fps::Counter::new(60.0),
         }
     }
 
@@ -100,17 +97,17 @@ impl Ui {
         count
     }
 
-    fn draw_status_bar(&self, data: &Data, ctx: &mut Context, tps: f64, nodes: usize, lines: usize) {
+    fn draw_status_bar(&self, data: &Data, ctx: &mut Context, tps: f64, sim_duration: Duration, fps: f64, frame_duration: Duration, nodes: usize, lines: usize) {
         let albums = data.albums.len();
         let users = data.users.len();
         let links = data.relationships.len();
 
         let mut text = Text::new(format!(indoc::indoc!("
-            tps: {:.2}
-            fps: {:.2}
+            tps: {:.2} ({:.2?})
+            fps: {:.2} ({:.2?})
             albums, users, links: {} {} {}
             drawn: {}/{} {}/{}
-        "), tps, self.fps.value(), albums, users, links, nodes, (albums + users), lines, links));
+        "), tps, sim_duration, fps, frame_duration, albums, users, links, nodes, (albums + users), lines, links));
 
         for entity in &data.entities {
             if entity.is_under_mouse {
@@ -138,7 +135,7 @@ impl Ui {
         ).unwrap();
     }
 
-    pub fn draw(&mut self, data: &Data, ctx: &mut Context, delta: Duration, tps: f64) {
+    pub fn draw(&mut self, data: &Data, ctx: &mut Context, delta: Duration, tps: f64, sim_duration: Duration, fps: f64, frame_duration: Duration) {
         ggez::graphics::clear(ctx, match *MODE { dark_light::Mode::Light => WHITE, dark_light::Mode::Dark => BLACK });
         ggez::graphics::set_transform(ctx, DrawParam::new().dest(self.camera.position).scale([self.camera.zoom, self.camera.zoom]).to_matrix());
         ggez::graphics::apply_transformations(ctx).unwrap();
@@ -148,8 +145,7 @@ impl Ui {
         let nodes = self.draw_entities(data, ctx, delta, (tl, br));
         ggez::graphics::origin(ctx);
         ggez::graphics::apply_transformations(ctx).unwrap();
-        self.draw_status_bar(data, ctx, tps, nodes, lines);
-        self.fps.tick();
+        self.draw_status_bar(data, ctx, tps, sim_duration, fps, frame_duration, nodes, lines);
     }
 
     fn update_drag(&mut self, data: &mut Data, mouse_pos: Position, delta: Distance) {

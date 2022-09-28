@@ -83,6 +83,7 @@ struct App {
     last_update: Instant,
     last_mouse_position: Position,
     tps: fps::Counter<{2 * SIM_FREQ as usize}>,
+    fps: fps::Counter<120>,
     pause_sim: bool,
     // Order matters, sender and receiver must be dropped before background thread to tell it to shutdown
     to_scrape_tx: Sender<background::Request>,
@@ -103,6 +104,7 @@ impl App {
             ui: Ui::new(),
             last_update: Instant::now(),
             tps: fps::Counter::new(20.0),
+            fps: fps::Counter::new(60.0),
             last_mouse_position: Position::new(0.0, 0.0),
             pause_sim: false,
             to_scrape_tx,
@@ -166,9 +168,12 @@ impl EventHandler for App {
     fn update(&mut self, ctx: &mut Context) -> GameResult<()> {
         self.ui.update(&mut self.data, ctx);
         if ggez::timer::check_update_time(ctx, SIM_FREQ as u32) {
-            if !self.pause_sim {
-                sim::update(&mut self.data, SIM_TIME);
-                self.tps.tick();
+            if self.pause_sim {
+                self.tps.reset_start();
+            } else {
+                self.tps.record(|| {
+                    sim::update(&mut self.data, SIM_TIME);
+                });
             }
             match self.scraped_rx.try_recv() {
                 Ok(response) => match response {
@@ -200,7 +205,10 @@ impl EventHandler for App {
     #[fehler::throws(GameError)]
     fn draw(&mut self, ctx: &mut Context) {
         let delta = if self.pause_sim { Duration::default() } else { self.last_update.elapsed() };
-        self.ui.draw(&mut self.data, ctx, delta, self.tps.value());
+        let (fps, draw_duration) = (self.fps.per_second(), self.fps.inner_duration());
+        self.fps.record(|| {
+            self.ui.draw(&mut self.data, ctx, delta, self.tps.per_second(), self.tps.inner_duration(), fps, draw_duration);
+        });
         ggez::graphics::present(ctx)?;
     }
 }
