@@ -51,7 +51,7 @@ fn update_acc(data: &mut Data) {
 }
 
 pub fn update(data: &mut Data, delta: Duration) {
-    update_position(data, delta);
     update_acc(data);
     update_velocity(data, delta);
+    update_position(data, delta);
 }
