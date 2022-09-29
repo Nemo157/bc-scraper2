@@ -37,6 +37,7 @@ pub struct Entity {
     pub is_under_mouse: bool,
     pub is_scraped: bool,
     pub data: EntityData,
+    pub related: BTreeSet<EntityId>,
 }
 
 #[derive(Debug)]
@@ -88,6 +89,7 @@ impl EntityData {
             is_under_mouse: false,
             is_scraped: false,
             data: self,
+            related: BTreeSet::new(),
         }
     }
 
@@ -104,6 +106,7 @@ impl EntityData {
             is_under_mouse: false,
             is_scraped: false,
             data: self,
+            related: BTreeSet::new(),
         }
     }
 }
@@ -209,6 +212,8 @@ impl Data {
         };
 
         self.relationships.insert(Relationship { album, user });
+        self.entities[album].related.insert(user);
+        self.entities[user].related.insert(album);
     }
 
     pub fn spawn_random(&mut self, albums: u64, users: u64) {

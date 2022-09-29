@@ -37,8 +37,8 @@ fn attract(data: &mut Data) {
         let (album, user) = data.entities.index_pair(rel.album, rel.user);
         // TODO: Unit for attraction
         let attraction = Acceleration::from((user.position - album.position).0 * 2.0);
-        album.acceleration += attraction;
-        user.acceleration += -attraction;
+        album.acceleration += attraction / (album.related.len() as f32).sqrt();
+        user.acceleration += -attraction / (user.related.len() as f32).sqrt();
     }
 }
 
