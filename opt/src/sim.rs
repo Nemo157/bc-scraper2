@@ -44,7 +44,7 @@ fn attract(data: &mut Data) {
 
 fn update_acc(data: &mut Data) {
     (&mut data.entities).into_par_iter().for_each(|entity| {
-        entity.acceleration = Acceleration::default();
+        entity.acceleration = Acceleration::from(entity.position.0 * -0.1);
     });
     repel(data);
     attract(data);
