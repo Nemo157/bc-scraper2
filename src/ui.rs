@@ -87,7 +87,7 @@ impl Ui {
     }
 
     fn mesh_for(&self, entity: &Entity) -> &Mesh {
-        let tag = match entity.data {
+        let tag = match &*entity.data {
             EntityData::Album(_) => EntityTag::Album,
             EntityData::User(_) => EntityTag::User,
         };
@@ -152,7 +152,7 @@ impl Ui {
 
         for entity in &data.entities {
             if entity.is_under_mouse {
-                match &entity.data {
+                match &*entity.data {
                     EntityData::Album(Album { url, .. }) => {
                         text.add(format!("\nalbum: {url}"));
                     }

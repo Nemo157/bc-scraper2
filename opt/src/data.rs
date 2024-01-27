@@ -3,7 +3,7 @@ use rand::{
     seq::SliceRandom,
 };
 use rand_distr::Poisson;
-use std::{collections::{BTreeSet, BTreeMap}, time::Instant};
+use std::{sync::Arc, time::Instant};
 
 use crate::phys::{Acceleration, Position, Velocity, Distance};
 
@@ -13,22 +13,22 @@ pub enum Type {
     User,
 }
 
-#[derive(Copy, Clone, Debug, PartialOrd, Ord, PartialEq, Eq)]
+#[derive(Copy, Clone, Debug, PartialOrd, Ord, PartialEq, Eq, Hash)]
 pub struct AlbumId(pub u64);
 
-#[derive(Copy, Clone, Debug, PartialOrd, Ord, PartialEq, Eq)]
+#[derive(Copy, Clone, Debug, PartialOrd, Ord, PartialEq, Eq, Hash)]
 pub struct UserId(pub u64);
 
-#[derive(Copy, Clone, Debug, PartialOrd, Ord, PartialEq, Eq)]
+#[derive(Copy, Clone, Debug, PartialOrd, Ord, PartialEq, Eq, Hash)]
 pub struct EntityId(u32);
 
-#[derive(Debug)]
+#[derive(Clone, Debug)]
 pub struct Drag {
     pub start_position: Position,
     pub start_time: Instant,
 }
 
-#[derive(Debug)]
+#[derive(Clone, Debug)]
 pub struct Entity {
     pub position: Position,
     pub velocity: Velocity,
@@ -36,8 +36,8 @@ pub struct Entity {
     pub dragged: Option<Drag>,
     pub is_under_mouse: bool,
     pub is_scraped: bool,
-    pub data: EntityData,
-    pub related: BTreeSet<EntityId>,
+    pub data: Arc<EntityData>,
+    pub related: im::HashSet<EntityId>,
 }
 
 #[derive(Debug)]
@@ -46,7 +46,7 @@ pub enum EntityData {
     User(User),
 }
 
-#[derive(Debug, PartialOrd, Ord, PartialEq, Eq)]
+#[derive(Clone, Debug, PartialOrd, Ord, PartialEq, Eq, Hash)]
 pub struct Relationship {
     pub album: EntityId,
     pub user: EntityId,
@@ -55,12 +55,40 @@ pub struct Relationship {
 #[derive(Default, Debug)]
 pub struct Entities(Vec<Entity>);
 
+impl Clone for Entities {
+    fn clone(&self) -> Self {
+        Self(self.0.clone())
+    }
+
+    fn clone_from(&mut self, source: &Self) {
+        self.0.clone_from(&source.0);
+    }
+}
+
 #[derive(Default, Debug)]
 pub struct Data {
     pub entities: Entities,
-    pub relationships: BTreeSet<Relationship>,
-    pub albums: BTreeMap<AlbumId, EntityId>,
-    pub users: BTreeMap<UserId, EntityId>,
+    pub relationships: im::HashSet<Relationship>,
+    pub albums: im::HashMap<AlbumId, EntityId>,
+    pub users: im::HashMap<UserId, EntityId>,
+}
+
+impl Clone for Data {
+    fn clone(&self) -> Self {
+        Self {
+            entities: self.entities.clone(),
+            relationships: self.relationships.clone(),
+            albums: self.albums.clone(),
+            users: self.users.clone(),
+        }
+    }
+
+    fn clone_from(&mut self, source: &Self) {
+        self.entities.clone_from(&source.entities);
+        self.relationships.clone_from(&source.relationships);
+        self.albums.clone_from(&source.albums);
+        self.users.clone_from(&source.users);
+    }
 }
 
 #[derive(Debug, Clone)]
@@ -88,8 +116,8 @@ impl EntityData {
             dragged: None,
             is_under_mouse: false,
             is_scraped: false,
-            data: self,
-            related: BTreeSet::new(),
+            data: Arc::new(self),
+            related: im::HashSet::new(),
         }
     }
 
@@ -105,8 +133,8 @@ impl EntityData {
             dragged: None,
             is_under_mouse: false,
             is_scraped: false,
-            data: self,
-            related: BTreeSet::new(),
+            data: Arc::new(self),
+            related: im::HashSet::new(),
         }
     }
 }

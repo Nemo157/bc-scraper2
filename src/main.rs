@@ -88,7 +88,7 @@ struct App {
     data: Data,
     last_update: Instant,
     last_mouse_position: Position,
-    tps: fps::Counter<{2 * SIM_FREQ as usize}>,
+    tps: fps::Counter<2>,
     fps: fps::Counter<120>,
     pause_sim: bool,
     // Order matters, sender and receiver must be dropped before background thread to tell it to shutdown
@@ -148,7 +148,7 @@ impl EventHandler for App {
 
     fn mouse_button_up_event(&mut self, ctx: &mut Context, button: MouseButton, x: f32, y: f32) {
         if let Some(entity) = self.ui.mouse_up(&mut self.data, ctx, button, Position::new(x, y)) {
-            match &entity.data {
+            match &*entity.data {
                 EntityData::Album(Album { url, .. }) => {
                     self.to_scrape_tx.send(background::Request::Album { url: url.clone() }).unwrap();
                 }
