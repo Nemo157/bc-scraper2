@@ -17,27 +17,27 @@ opt-level = 2
 
 [dependencies]
 opt = { version = "0.0.0", path = "opt" }
-ggez = "0.5.1"
+ggez = "0.9.3"
 rand = { version = "0.8.5", features = ["min_const_gen"] }
 rand_distr = "0.4.3"
 reqwest = { version = "0.11.12", default-features = false, features = ["blocking", "native-tls", "gzip", "brotli", "json"] }
 url = { version = "2.3.1", default-features = false, features = ["serde"] }
 chrono = { version = "0.4.22", default-features = false }
-rusqlite = { version = "0.28.0", default-features = false, features = ["chrono", "url", "bundled", "serde_json"] }
+rusqlite = { version = "0.30.0", default-features = false, features = ["chrono", "url", "bundled", "serde_json"] }
 fehler = { version = "1.0.0", default-features = false }
 tracing = { version = "0.1.36", default-features = false, features = ["attributes", "log"] }
-tracing-subscriber = { version = "0.3.15", default-features = false, features = ["std", "env-filter", "fmt", "ansi"] }
+tracing-subscriber = { version = "0.3.15", default-features = false, features = ["std", "env-filter", "fmt", "ansi", "tracing-log"] }
 color-eyre = { version = "0.6.2", default-features = false, features = ["capture-spantrace", "track-caller"] }
 eyre = { version = "0.6.8", default-features = false, features = ["track-caller"] }
 tracing-error = { version = "0.2.0", default-features = false }
-scraper = { version = "0.13.0", default-features = false }
+scraper = { version = "0.18.1", default-features = false }
 serde = { version = "1.0.144", default-features = false, features = ["std", "derive"] }
 serde_json = { version = "1.0.85", default-features = false, features = ["std"] }
-tracing-tree = { version = "0.2.1", default-features = false }
-strum = { version = "0.24.1", default-features = false, features = ["derive"] }
+tracing-tree = { version = "0.3.0", default-features = false }
+strum = { version = "0.25.0", default-features = false, features = ["derive"] }
 crossbeam = { version = "0.8.2", default-features = false, features = ["std"] }
-clap = { version = "=4.0.0-rc.1", default-features = false, features = ["derive", "color", "std", "help", "wrap_help"] }
-indoc = { version = "1.0.7", default-features = false }
-dark-light = { version = "0.2.3", default-features = false }
+clap = { version = "4.4.18", default-features = false, features = ["derive", "color", "std", "help", "wrap_help"] }
+indoc = { version = "2.0.4", default-features = false }
+dark-light = { version = "1.0.0", default-features = false }
 once_cell = { version = "1.15.0", default-features = false, features = ["std"] }
-itertools = { version = "0.10.5", default-features = false }
+itertools = { version = "0.12.0", default-features = false }

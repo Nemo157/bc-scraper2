@@ -1,5 +1,5 @@
 use ggez::{
-    graphics::{Color, DrawMode, DrawParam, Mesh, MeshBuilder, Rect, BLACK, WHITE, Text},
+    graphics::{Color, DrawMode, DrawParam, Mesh, MeshBuilder, Rect, Text, Canvas},
     input::mouse::MouseButton,
     Context,
 };
@@ -40,12 +40,17 @@ pub struct Ui {
     meshes: BTreeMap<MeshKey, Mesh>,
     foreground: Color,
     background: Color,
+    width: f32,
+    height: f32,
 }
 
 impl Ui {
     pub fn new(ctx: &mut Context) -> Self {
         let mode = dark_light::detect();
-        let (fg, bg) = match mode { dark_light::Mode::Light => (BLACK, WHITE), dark_light::Mode::Dark => (WHITE, BLACK) };
+        let (fg, bg) = match mode {
+            dark_light::Mode::Light | dark_light::Mode::Default => (Color::BLACK, Color::WHITE),
+            dark_light::Mode::Dark => (Color::WHITE, Color::BLACK),
+        };
 
         let highlight = Color::new(0.2, 1.0, 0.2, 1.0);
         let scraped = Color::new(0.2, 0.2, 1.0, 1.0);
@@ -83,6 +88,8 @@ impl Ui {
             meshes,
             foreground: fg,
             background: bg,
+            width: 0.0,
+            height: 0.0,
         }
     }
 
@@ -94,19 +101,19 @@ impl Ui {
         &self.meshes[&MeshKey { tag, is_scraped: entity.is_scraped, is_under_mouse: entity.is_under_mouse }]
     }
 
-    fn draw_entities(&self, data: &Data, ctx: &mut Context, delta: Duration, (tl, br): (Position, Position)) -> usize {
+    fn draw_entities(&self, data: &Data, canvas: &mut Canvas, delta: Duration, (tl, br): (Position, Position)) -> usize {
         let mut count = 0;
         for entity in &data.entities {
             let pos = entity.position + entity.velocity * delta;
             if pos > tl && pos < br {
-                ggez::graphics::draw(ctx, self.mesh_for(entity), DrawParam::from((pos,))).unwrap();
+                canvas.draw(self.mesh_for(entity), DrawParam::from(pos));
                 count += 1;
             }
         }
         count
     }
 
-    fn draw_relationships(&self, data: &Data, ctx: &mut Context, delta: Duration) -> usize {
+    fn draw_relationships(&self, data: &Data, ctx: &mut Context, canvas: &mut Canvas, delta: Duration) -> usize {
         let mut mesh = MeshBuilder::new();
         let mut count = 0;
         for rel in &data.relationships {
@@ -121,15 +128,13 @@ impl Ui {
             }
         }
         if count > 0 {
-            let mesh = mesh.build(ctx).unwrap();
-            ggez::graphics::draw(ctx, &mesh, DrawParam::default()).unwrap();
+            let mesh = Mesh::from_data(ctx, mesh.build());
+            canvas.draw(&mesh, DrawParam::default());
         }
         count
     }
 
-    fn draw_status_bar(&self, data: &Data, ctx: &mut Context, tps: f64, sim_duration: Duration, fps: f64, frame_duration: Duration, nodes: usize, _lines: usize) {
-        let screen = ggez::graphics::screen_coordinates(ctx);
-
+    fn draw_status_bar(&self, data: &Data, ctx: &mut Context, canvas: &mut Canvas, tps: f64, sim_duration: Duration, fps: f64, frame_duration: Duration, nodes: usize, _lines: usize) {
         let albums = data.albums.len();
         let users = data.users.len();
 
@@ -139,8 +144,8 @@ impl Ui {
             drawn: {}/{}
         "), tps, sim_duration, fps, frame_duration, nodes, (albums + users)));
 
-        let width = text.width(ctx);
-        ggez::graphics::draw(ctx, &text, DrawParam::from(([screen.w - width as f32, 0.0], self.foreground))).unwrap();
+        let width = text.measure(ctx).unwrap().x;
+        canvas.draw(&text, DrawParam::from([self.width - width as f32, 0.0]).color(self.foreground));
 
         let links = data.relationships.len();
 
@@ -163,27 +168,24 @@ impl Ui {
             }
         }
 
-        ggez::graphics::draw(ctx, &text, DrawParam::from(([0.0, 0.0], self.foreground))).unwrap();
+        canvas.draw(&text, DrawParam::from([0.0, 0.0]).color(self.foreground));
 
-        let mouse_pos = ggez::input::mouse::position(ctx);
-        let mouse_pos = self.offset_to_camera(Position::from(mouse_pos));
+        let mouse_pos = self.offset_to_camera(Position::from(ctx.mouse.position()));
 
         let text = Text::new(format!("{}, {}", mouse_pos.0.x, mouse_pos.0.y));
-        let height = text.height(ctx);
-        ggez::graphics::draw(ctx, &text, DrawParam::from(([0.0, screen.h - height as f32], self.foreground))).unwrap();
+        let height = text.measure(ctx).unwrap().y;
+        canvas.draw(&text, DrawParam::from([0.0, self.height - height as f32]).color(self.foreground));
     }
 
     pub fn draw(&mut self, data: &Data, ctx: &mut Context, delta: Duration, tps: f64, sim_duration: Duration, fps: f64, frame_duration: Duration) {
-        ggez::graphics::clear(ctx, self.background);
-        ggez::graphics::set_transform(ctx, DrawParam::new().dest(self.camera.position).scale([self.camera.zoom, self.camera.zoom]).to_matrix());
-        ggez::graphics::apply_transformations(ctx).unwrap();
-        let coords = ggez::graphics::screen_coordinates(ctx);
-        let (tl, br) = (self.offset_to_camera(Position::new(coords.x, coords.y)), self.offset_to_camera(Position::new(coords.x + coords.w, coords.y + coords.h)));
-        let lines = self.enable_lines.then(|| self.draw_relationships(data, ctx, delta)).unwrap_or_default();
-        let nodes = self.enable_nodes.then(|| self.draw_entities(data, ctx, delta, (tl, br))).unwrap_or_default();
-        ggez::graphics::origin(ctx);
-        ggez::graphics::apply_transformations(ctx).unwrap();
-        self.draw_status_bar(data, ctx, tps, sim_duration, fps, frame_duration, nodes, lines);
+        let mut canvas = Canvas::from_frame(ctx, self.background);
+        canvas.set_projection(DrawParam::new().dest(self.camera.position).scale([self.camera.zoom, self.camera.zoom]).transform.to_bare_matrix());
+        let (tl, br) = (self.offset_to_camera(Position::new(0.0, 0.0)), self.offset_to_camera(Position::new(self.width, self.height)));
+        let lines = self.enable_lines.then(|| self.draw_relationships(data, ctx, &mut canvas, delta)).unwrap_or_default();
+        let nodes = self.enable_nodes.then(|| self.draw_entities(data, &mut canvas, delta, (tl, br))).unwrap_or_default();
+        canvas.set_projection(DrawParam::new().transform.to_bare_matrix());
+        self.draw_status_bar(data, ctx, &mut canvas, tps, sim_duration, fps, frame_duration, nodes, lines);
+        canvas.finish(ctx).unwrap();
     }
 
     fn update_drag(&mut self, data: &mut Data, mouse_pos: Position, delta: Distance) {
@@ -263,20 +265,19 @@ impl Ui {
 
     pub fn mouse_motion(&mut self, data: &mut Data, ctx: &mut Context, pos: Position, delta: Distance) {
         let pos = self.offset_to_camera(pos);
-        if ggez::input::mouse::button_pressed(ctx, MouseButton::Left) {
+        if ctx.mouse.button_pressed(MouseButton::Left) {
             self.update_drag(data, pos, delta);
         }
     }
 
-    pub fn resize(&mut self, ctx: &mut Context, width: f32, height: f32) {
-        let coords = ggez::graphics::screen_coordinates(ctx);
-        self.camera.position += Distance::new((width - coords.w) / 2.0, (height - coords.h) / 2.0);
-        ggez::graphics::set_screen_coordinates(ctx, Rect::new(0.0, 0.0, width, height)).unwrap();
+    pub fn resize(&mut self, width: f32, height: f32) {
+        self.camera.position += Distance::new((width - self.width) / 2.0, (height - self.height) / 2.0);
+        self.width = width;
+        self.height = height;
     }
 
     pub fn update(&mut self, data: &mut Data, ctx: &mut Context) {
-        let mouse_pos = ggez::input::mouse::position(ctx);
-        let mouse_pos = self.offset_to_camera(Position::from(mouse_pos));
+        let mouse_pos = self.offset_to_camera(Position::from(ctx.mouse.position()));
         self.update_under_mouse(data, mouse_pos);
     }
 }

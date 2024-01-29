@@ -1,5 +1,5 @@
 use eyre::Error;
-use ggez::{event::EventHandler, input::{mouse::MouseButton, keyboard::{KeyCode, KeyMods}}, Context, ContextBuilder, GameResult, GameError, conf::WindowMode};
+use ggez::{event::EventHandler, input::{mouse::MouseButton, keyboard::{KeyInput, KeyMods, KeyCode}}, Context, ContextBuilder, GameResult, GameError, conf::WindowMode};
 use std::time::{Duration, Instant};
 use tracing_subscriber::layer::SubscriberExt as _;
 use tracing_subscriber::util::SubscriberInitExt as _;
@@ -33,8 +33,7 @@ struct Args {
     random: Vec<u64>,
 }
 
-#[fehler::throws]
-fn main() {
+fn main() -> eyre::Result<()> {
     let args = Args::parse();
 
     tracing_subscriber::registry()
@@ -50,7 +49,7 @@ fn main() {
     color_eyre::install()?;
 
     // Make a Context and an EventLoop.
-    let (mut ctx, mut event_loop) =
+    let (mut ctx, event_loop) =
         ContextBuilder::new("bc-scraper2", "mind your own bizness")
         .window_mode(WindowMode {
             resizable: true,
@@ -80,7 +79,7 @@ fn main() {
     }
 
     // Run!
-    ggez::event::run(&mut ctx, &mut event_loop, &mut ui)?;
+    ggez::event::run(ctx, event_loop, ui)
 }
 
 struct App {
@@ -121,32 +120,34 @@ impl App {
 }
 
 impl EventHandler for App {
-    fn key_down_event(&mut self, ctx: &mut Context, keycode: KeyCode, keymods: KeyMods, _repeat: bool) {
-        match keycode {
-            KeyCode::Space => {
+    fn key_down_event(&mut self, ctx: &mut Context, input: KeyInput, _repeat: bool) -> GameResult<()> {
+        match input.keycode {
+            Some(KeyCode::Space) => {
                 self.pause_sim ^= true;
             }
-            KeyCode::Escape => {
-                ggez::event::quit(ctx);
+            Some(KeyCode::Escape) => {
+                ctx.request_quit();
             }
-            KeyCode::Q if keymods.contains(KeyMods::CTRL) => {
-                ggez::event::quit(ctx);
+            Some(KeyCode::Q) if input.mods.contains(KeyMods::CTRL) => {
+                ctx.request_quit();
             }
-            KeyCode::L => {
+            Some(KeyCode::L) => {
                 self.ui.enable_lines ^= true;
             }
-            KeyCode::N => {
+            Some(KeyCode::N) => {
                 self.ui.enable_nodes ^= true;
             }
             _ => {}
         }
+        Ok(())
     }
 
-    fn mouse_button_down_event(&mut self, ctx: &mut Context, button: MouseButton, x: f32, y: f32) {
+    fn mouse_button_down_event(&mut self, ctx: &mut Context, button: MouseButton, x: f32, y: f32) -> GameResult<()> {
         self.ui.mouse_down(&mut self.data, ctx, button, Position::new(x, y));
+        Ok(())
     }
 
-    fn mouse_button_up_event(&mut self, ctx: &mut Context, button: MouseButton, x: f32, y: f32) {
+    fn mouse_button_up_event(&mut self, ctx: &mut Context, button: MouseButton, x: f32, y: f32) -> GameResult<()> {
         if let Some(entity) = self.ui.mouse_up(&mut self.data, ctx, button, Position::new(x, y)) {
             match &*entity.data {
                 EntityData::Album(Album { url, .. }) => {
@@ -157,9 +158,10 @@ impl EventHandler for App {
                 }
             }
         }
+        Ok(())
     }
 
-    fn mouse_motion_event(&mut self, ctx: &mut Context, x: f32, y: f32, dx: f32, dy: f32) {
+    fn mouse_motion_event(&mut self, ctx: &mut Context, x: f32, y: f32, dx: f32, dy: f32) -> GameResult<()> {
         self.last_mouse_position = Position::new(x, y);
         self.ui.mouse_motion(
             &mut self.data,
@@ -167,19 +169,22 @@ impl EventHandler for App {
             self.last_mouse_position,
             Distance::new(dx, dy),
         );
+        Ok(())
     }
 
-    fn mouse_wheel_event(&mut self, _ctx: &mut Context, x: f32, y: f32) {
+    fn mouse_wheel_event(&mut self, _ctx: &mut Context, x: f32, y: f32) -> GameResult<()> {
         self.ui.mouse_wheel(self.last_mouse_position, Velocity::new(x, y));
+        Ok(())
     }
 
-    fn resize_event(&mut self, ctx: &mut Context, width: f32, height: f32) {
-        self.ui.resize(ctx, width, height);
+    fn resize_event(&mut self, _ctx: &mut Context, width: f32, height: f32) -> GameResult<()> {
+        self.ui.resize(width, height);
+        Ok(())
     }
 
     fn update(&mut self, ctx: &mut Context) -> GameResult<()> {
         self.ui.update(&mut self.data, ctx);
-        if ggez::timer::check_update_time(ctx, SIM_FREQ as u32) {
+        if ctx.time.check_update_time(SIM_FREQ as u32) {
             if self.pause_sim {
                 self.tps.reset_start();
             } else {
@@ -231,6 +236,5 @@ impl EventHandler for App {
         self.fps.record(|| {
             self.ui.draw(&self.data, ctx, delta, self.tps.per_second(), self.tps.inner_duration(), fps, draw_duration);
         });
-        ggez::graphics::present(ctx)?;
     }
 }
